@@ -22,7 +22,7 @@ def create_labyrinth():
             )
         ],
         style={
-            'background': '#FFD700',
+            'background': '#FFFFFF',
             'max-height':'100%',
             'max-width':'100%',
             'aspect-ratio':'1',
@@ -42,7 +42,7 @@ def create_labyrinth():
     Input("labyrinth-canvas", "id")       # Triggered on page load
 )
 def generate_dfs_labyrinth_on_refresh(_):
-    side_size = random.choice(range(10,51))  # Define labyrinth size
+    side_size = random.choice(range(50, 61))  # Define labyrinth size
     labyrinth_data = generate_dfs_labyrinth(side_size)
 
     json_time = time.time()
