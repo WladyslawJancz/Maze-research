@@ -1,4 +1,5 @@
-from dash import html, callback, clientside_callback, ClientsideFunction, Input, Output
+from dash import html, callback, clientside_callback, ClientsideFunction, Input, Output, State, dcc
+import dash_mantine_components as dmc
 import json
 
 import random
@@ -10,39 +11,56 @@ def create_labyrinth():
     labyrinth = html.Div(
         id='labyrinth',
         children=[
-            html.Div(id="labyrinth-data", style={"display": "none"}, children=[]), #json.dumps(labyrinth_data)),
-            html.Div(id='dummy',children=[],style={"display": "none"}),
+            dcc.Store(id="labyrinth-data-store"),
             html.Canvas(
                 id='labyrinth-canvas',
                 children=[],
                 style={
-                    'width':'100%',
-                    'height':'100%'
+                    'height':'100%',
+                    'aspectRatio':1,
+                    'margin':'auto'
                 }
             )
         ],
         style={
-            'background': '#FFFFFF',
-            'max-height':'100%',
-            'max-width':'100%',
-            'aspect-ratio':'1',
-            'box-sizing':'border-box',
-            'border':'1px solid #000000',
-            'margin':'auto'
-            # 'flex':1,
-            # 'overflow':'hidden'
+            'display':'flex',
+            'align-content':'center',
+            'height':'100%',
+            'boxSizing':'border-box',
+            'margin':'auto',
+            'overflow':'hidden',
+            'flex':5
         }
     )
-    return labyrinth
+    labyrinth_controls = dmc.Stack(
+        id='labyrinth-controls',
+        children=[
+            dmc.Slider(
+                id='maze-size-slider',
+                value=10,
+                min=1,
+                max=500,
+                labelAlwaysOn=True,
+                persistence=True
+            ),
+            dmc.Button(
+                id='generate-maze-button',
+                children=['Generate']
+                
+            )
+        ],
+        flex=1
+    )
+    return dmc.Group(children=[labyrinth, labyrinth_controls], h='100%')
 
 # Callback to generate labyrinth data dynamically
 @callback(
-    Output("labyrinth-data", "children"),  # Send generated labyrinth data to this Div
+    Output("labyrinth-data-store", "data"),  # Send generated labyrinth data to Store
     Output("content-placeholder", "children"),
-    Input("labyrinth-canvas", "id")       # Triggered on page load
+    Input("generate-maze-button", "n_clicks"),       # Triggered on button click
+    State("maze-size-slider", "value")
 )
-def generate_dfs_labyrinth_on_refresh(_):
-    side_size = random.choice(range(50, 61))  # Define labyrinth size
+def generate_dfs_labyrinth_on_refresh(n_clicks, side_size):
     labyrinth_data = generate_dfs_labyrinth(side_size)
 
     json_time = time.time()
@@ -57,6 +75,6 @@ clientside_callback(
         namespace='namespace',
         function_name='callbackManageLabyrinth'
     ),
-    Output("dummy", "children"),
-    Input("labyrinth-data", "children")
+
+    Input("labyrinth-data-store", "data")
 )

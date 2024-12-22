@@ -1,12 +1,15 @@
-from dash import Dash, html, dcc, callback, Output, Input
-import plotly.express as px
-import pandas as pd
+from dash import Dash, _dash_renderer
+import dash_mantine_components as dmc
 from app_layout import generate_layout
 
-import random
+_dash_renderer._set_react_version("18.2.0")
 
-app = Dash(__name__)
-app.layout = generate_layout()
+app = Dash(__name__,
+           external_stylesheets=dmc.styles.ALL
+           )
+app.layout = dmc.MantineProvider(
+    generate_layout()
+)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
