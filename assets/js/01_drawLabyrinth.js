@@ -67,32 +67,13 @@ function drawLabyrinthAsCells(canvasId, labyrinthData) {
     ctx.fillStyle = "#FFFFFF";
     ctx.fill();
     console.timeEnd('drawLabyrinthExecutionTime'); // End the timer
-    }
+}
 
-function drawLabyrinth(canvasId, labyrinthData) {
-    console.time('drawLabyrinthExecutionTime'); // Start the timer
-
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-
-    // Dynamically set canvas dimensions
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr); // Scale drawing operations
-
-    const rows = labyrinthData.length;
-    const cols = labyrinthData[0].length;
-
-    // Calculate integer cell size and adjust canvas dimensions
-    const cellSize = Math.ceil(canvas.width / ((cols - 1) / 2));
-    canvas.width = cellSize * ((cols - 1) / 2);
-    canvas.height = cellSize * ((rows - 1) / 2);
+function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData) {
+    console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
 
     // Disable anti-aliasing (optional)
-    ctx.imageSmoothingEnabled = false;
+    offscreenCtx.imageSmoothingEnabled = false;
 
     // Configuration constants
     const batchSize = 10000;
@@ -115,21 +96,21 @@ function drawLabyrinth(canvasId, labyrinthData) {
 
     // Function to apply rectangle styles
     function applyRectStyles() {
-        ctx.fillStyle = rectStyle.fill;
-        ctx.strokeStyle = rectStyle.stroke;
-        ctx.lineWidth = rectStyle.lineWidth;
+        offscreenCtx.fillStyle = rectStyle.fill;
+        offscreenCtx.strokeStyle = rectStyle.stroke;
+        offscreenCtx.lineWidth = rectStyle.lineWidth;
     }
 
     // Function to apply line styles
     function applyLineStyles() {
-        ctx.strokeStyle = lineStyle.stroke;
-        ctx.lineWidth = lineStyle.lineWidth;
-        ctx.lineCap = lineStyle.lineCap;
-        ctx.lineJoin = lineStyle.lineJoin;
-        ctx.shadowColor = lineStyle.shadow;
-        ctx.shadowBlur = lineStyle.shadowBlur;
-        ctx.shadowOffsetX = lineStyle.shadowOffsetX;
-        ctx.shadowOffsetY = lineStyle.shadowOffsetY;
+        offscreenCtx.strokeStyle = lineStyle.stroke;
+        offscreenCtx.lineWidth = lineStyle.lineWidth;
+        offscreenCtx.lineCap = lineStyle.lineCap;
+        offscreenCtx.lineJoin = lineStyle.lineJoin;
+        offscreenCtx.shadowColor = lineStyle.shadow;
+        offscreenCtx.shadowBlur = lineStyle.shadowBlur;
+        offscreenCtx.shadowOffsetX = lineStyle.shadowOffsetX;
+        offscreenCtx.shadowOffsetY = lineStyle.shadowOffsetY;
     }
 
     // Snap to integer pixel values
@@ -165,11 +146,11 @@ function drawLabyrinth(canvasId, labyrinthData) {
                 // Render batch when size is reached
                 if (++count >= batchSize) {
                     applyRectStyles();
-                    ctx.fill(rectPath);
-                    ctx.stroke(rectPath);
+                    offscreenCtx.fill(rectPath);
+                    offscreenCtx.stroke(rectPath);
 
                     applyLineStyles();
-                    ctx.stroke(linePath);
+                    offscreenCtx.stroke(linePath);
 
                     rectPath = new Path2D();
                     linePath = new Path2D();
@@ -181,25 +162,14 @@ function drawLabyrinth(canvasId, labyrinthData) {
 
     // Render remaining batch
     applyRectStyles();
-    ctx.fill(rectPath);
-    ctx.stroke(rectPath);
+    offscreenCtx.fill(rectPath);
+    offscreenCtx.stroke(rectPath);
 
     applyLineStyles();
-    ctx.stroke(linePath);
+    offscreenCtx.stroke(linePath);
 
-    console.timeEnd('drawLabyrinthExecutionTime'); // End the timer
+    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
-    
 
-// Define the clientside callback using Object.assign to avoid overwriting other namespaces
-window.dash_clientside = Object.assign({}, window.dash_clientside, {
-    namespace: Object.assign({}, (window.dash_clientside || {}).namespace, {
-        drawLabyrinth: function(data) {
-            console.time('json_parsing');
-            const labyrinthData = JSON.parse(data);  // Decode the JSON data
-            console.timeEnd('json_parsing');
-            drawLabyrinth("labyrinth-canvas", labyrinthData);  // Call your drawing function
-            return null;
-        }
-    })
-});
+// Export the function to make it accessible
+window.drawLabyrinthOffscreen = drawLabyrinthOffscreen;

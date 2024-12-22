@@ -55,7 +55,7 @@ def generate_dfs_labyrinth_on_refresh(_):
 clientside_callback(
     ClientsideFunction(
         namespace='namespace',
-        function_name='drawLabyrinth'
+        function_name='callbackManageLabyrinth'
     ),
     Output("dummy", "children"),
     Input("labyrinth-data", "children")
