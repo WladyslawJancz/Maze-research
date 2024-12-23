@@ -79,13 +79,13 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     const batchSize = 10000;
     const rectStyle = { fill: "#F6F6F8", stroke: "#F6F6F8", lineWidth: 1 };
     const lineStyle = { stroke: "#FFD700",
-                        lineWidth: Math.max(Math.round((cellSize * 0.05) / 2) * 2 + 1, 1), 
-                        shadow: "rgba(0, 0, 0, 0.5)",
-                        shadowBlur: 0,
-                        shadowOffsetX: 0,
-                        shadowOffsetY: 0,
-                        lineCap: "round", 
-                        lineJoin: "round" 
+                        lineWidth: Math.max(Math.round((cellSize * 0.1) / 2) * 2 + 1, 1), 
+                        lineCap: "square", 
+                        lineJoin: "square",
+                        // shadow: "rgba(0, 0, 0, 0.5)",
+                        // shadowBlur: 0,
+                        // shadowOffsetX: 0,
+                        // shadowOffsetY: 0,
     };
 
     let count = 0;
@@ -107,10 +107,10 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         offscreenCtx.lineWidth = lineStyle.lineWidth;
         offscreenCtx.lineCap = lineStyle.lineCap;
         offscreenCtx.lineJoin = lineStyle.lineJoin;
-        offscreenCtx.shadowColor = lineStyle.shadow;
-        offscreenCtx.shadowBlur = lineStyle.shadowBlur;
-        offscreenCtx.shadowOffsetX = lineStyle.shadowOffsetX;
-        offscreenCtx.shadowOffsetY = lineStyle.shadowOffsetY;
+        // offscreenCtx.shadowColor = lineStyle.shadow;
+        // offscreenCtx.shadowBlur = lineStyle.shadowBlur;
+        // offscreenCtx.shadowOffsetX = lineStyle.shadowOffsetX;
+        // offscreenCtx.shadowOffsetY = lineStyle.shadowOffsetY;
     }
 
     // Snap to integer pixel values
