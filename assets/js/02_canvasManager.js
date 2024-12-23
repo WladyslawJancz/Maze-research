@@ -26,18 +26,58 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     const offscreenCanvasCellSize = cellSize;
 
     //Zoom feature
+    let isZooming = false;
+    let zoomTimeout;
+    const zoomDelay = 750; // Delay in milliseconds after the last zoom event
     let zoomFactor = 1;
-    let maxZoomFactor = 2;
-    let minZoomFactor = 0.75;
+    let maxZoomFactor = 3;
+    let minZoomFactor = 1;
         // these 2 variables describe distance of the origin of rendered imaged
         // from the main canvas
         // the offset is updated when zooming and panning
     let renderedImageCanvasOffsetX = 0;
     let renderedImageCanvasOffsetY = 0;
-  
+
+    function compensatePanning() {
+        if (isPanning || isZooming) return;
+
+        let newOffsetX = renderedImageCanvasOffsetX;
+        let newOffsetY = renderedImageCanvasOffsetY;
+        
+        if (renderedImageCanvasOffsetX > 0) {
+            newOffsetX = 0;
+        } else if (-1 * renderedImageCanvasOffsetX + canvas.width > offscreenCanvas.width * zoomFactor) {
+            newOffsetX = renderedImageCanvasOffsetX + (-1 * renderedImageCanvasOffsetX + canvas.width) - (offscreenCanvas.width * zoomFactor);
+        } 
+        if (renderedImageCanvasOffsetY > 0) {
+            newOffsetY = 0;
+        } if (-1 * renderedImageCanvasOffsetY + canvas.height > offscreenCanvas.height * zoomFactor) {
+            newOffsetY = renderedImageCanvasOffsetY + (-1 * renderedImageCanvasOffsetY + canvas.height) - (offscreenCanvas.height * zoomFactor);
+        }
+        
+       
+
+        if (newOffsetX !== renderedImageCanvasOffsetX || newOffsetY !== renderedImageCanvasOffsetY) {
+            renderedImageCanvasOffsetX = newOffsetX;
+            renderedImageCanvasOffsetY = newOffsetY;
+            // Redraw with updated offsets
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY);
+            ctx.drawImage(offscreenCanvas, 0, 0);
+        }    
+    };
+
+    function renderLoop() {
+        if (!isPanning && !isZooming) {
+            compensatePanning(); // Only compensate when no panning or zooming is happening
+        }
+        requestAnimationFrame(renderLoop); // Keep the loop running
+    }
+    
     canvas.addEventListener('wheel', (event) => {
         event.preventDefault();
-
+        if (!isZooming) isZooming = true;
         const mouseX = event.offsetX; // cursor position on canvas when event was triggered
         const mouseY = event.offsetY;
             // where the cursor would have pointed in the image
@@ -65,6 +105,12 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
         ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY); // Apply zoom and pan transformation
         ctx.drawImage(offscreenCanvas, 0, 0);  // Draw offscreen content onto the main canvas
+        // Debounce the end of zooming
+        clearTimeout(zoomTimeout); // Clear any existing timeout
+        zoomTimeout = setTimeout(() => {
+            isZooming = false; // Mark zoom as complete after delay
+        }, zoomDelay); // Delay in milliseconds
+        // isZooming = false;
     });
 
     // Panning Feature
@@ -111,6 +157,8 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     window.drawLabyrinthOffscreen(offscreenCanvasCellSize, rows, cols, offscreenCtx, labyrinthData);
     ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
     ctx.drawImage(offscreenCanvas, 0, 0);  // Draw offscreen content onto the main canvas
+    // Start the loop
+    renderLoop();
 
 };
 
