@@ -29,22 +29,24 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     let zoomFactor = 1;
     let maxZoomFactor = 2;
     let minZoomFactor = 0.75;
-    let mouseZoomOffsetX = 0;
-    let mouseZoomOffsetY = 0;
-
-    // Panning Variables
-    let isPanning = false;
-    let startX = 0;
-    let startY = 0;
-    
+        // these 2 variables describe distance of the origin of rendered imaged
+        // from the main canvas
+        // the offset is updated when zooming and panning
+    let renderedImageCanvasOffsetX = 0;
+    let renderedImageCanvasOffsetY = 0;
+  
     canvas.addEventListener('wheel', (event) => {
         event.preventDefault();
 
-        const mouseX = event.offsetX;
+        const mouseX = event.offsetX; // cursor position on canvas when event was triggered
         const mouseY = event.offsetY;
-
-        const worldX = (mouseX - mouseZoomOffsetX) / zoomFactor;
-        const worldY = (mouseY - mouseZoomOffsetY) / zoomFactor;
+            // where the cursor would have pointed in the image
+            // if no previous zooming or panning happened
+            // translation of cursor coordinates from Image to Canvas space;
+            // these operation cancel previous panning and zoom - coordinates without previous offset and zoom
+            // note: zoomFactor here is the original zoom or previous applied zoom
+        const worldX = (mouseX - renderedImageCanvasOffsetX) / zoomFactor; 
+        const worldY = (mouseY - renderedImageCanvasOffsetY) / zoomFactor;
 
         if (event.deltaY < 0) {
             zoomFactor +=0.05;
@@ -53,16 +55,22 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         }
         zoomFactor = Math.max(minZoomFactor, Math.min(zoomFactor, maxZoomFactor));
 
-        mouseZoomOffsetX = mouseX - worldX * zoomFactor;
-        mouseZoomOffsetY = mouseY - worldY * zoomFactor;
+        // how much to offset the image so that the cursor is still pointing at the same thing after zoom is applied
+        // world coordinates * zoomFactor = world coordinats with new zoom
+        // note: zoomFactor here is new zoom
+        renderedImageCanvasOffsetX = mouseX - worldX * zoomFactor;
+        renderedImageCanvasOffsetY = mouseY - worldY * zoomFactor;
         
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.setTransform(zoomFactor, 0, 0, zoomFactor, mouseZoomOffsetX, mouseZoomOffsetY); // Apply zoom transformation
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // remove all previous zoom and pan transformations - realign canvas with image
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
+        ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY); // Apply zoom and pan transformation
         ctx.drawImage(offscreenCanvas, 0, 0);  // Draw offscreen content onto the main canvas
     });
 
     // Panning Feature
+    let isPanning = false;
+    let startX = 0; // these coordinate track curson coordinates at the time of LMB click that initialized panning
+    let startY = 0;
     canvas.addEventListener('mousedown', (event) => {
         isPanning = true; // Start panning
         startX = event.clientX; // Track starting mouse position
@@ -73,12 +81,12 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         if (!isPanning) return; // Only pan if mouse is pressed
 
         // Calculate the mouse movement (delta)
-        const deltaX = (event.clientX - startX) / zoomFactor; // Scale movement by zoom
-        const deltaY = (event.clientY - startY) / zoomFactor;
+        const deltaX = (event.clientX - startX);
+        const deltaY = (event.clientY - startY);
 
         // Update offsets based on mouse movement
-        mouseZoomOffsetX += deltaX;
-        mouseZoomOffsetY += deltaY;
+        renderedImageCanvasOffsetX += deltaX;
+        renderedImageCanvasOffsetY += deltaY;
 
         // Update start position for next frame
         startX = event.clientX;
@@ -87,7 +95,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         // Redraw with updated offsets
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.setTransform(zoomFactor, 0, 0, zoomFactor, mouseZoomOffsetX, mouseZoomOffsetY);
+        ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY);
         ctx.drawImage(offscreenCanvas, 0, 0);
     });
 
