@@ -1,4 +1,9 @@
 function initializeCanvasManager(canvasId, labyrinthData) {
+    let animationSpeed = 0.05; // Adjust speed (0.1 = smooth, 1 = instant)
+    function lerp(start, end, t) {
+        return start * (1 - t) + end * t; // Linear interpolation formula
+    }
+
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
@@ -28,7 +33,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     //Zoom feature
     let isZooming = false;
     let zoomTimeout;
-    const zoomDelay = 750; // Delay in milliseconds after the last zoom event
+    const zoomDelay = 500; // Delay in milliseconds after the last zoom event
     let zoomFactor = 1;
     let maxZoomFactor = 3;
     let minZoomFactor = 1;
@@ -38,39 +43,47 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     let renderedImageCanvasOffsetX = 0;
     let renderedImageCanvasOffsetY = 0;
 
+    let compensatePanningOffsetX = 0;
+    let compensatePanningOffsetY = 0;
+
     function compensatePanning() {
         if (isPanning || isZooming) return;
 
-        let newOffsetX = renderedImageCanvasOffsetX;
-        let newOffsetY = renderedImageCanvasOffsetY;
+        compensatePanningOffsetX = renderedImageCanvasOffsetX;
+        compensatePanningOffsetY = renderedImageCanvasOffsetY;
         
         if (renderedImageCanvasOffsetX > 0) {
-            newOffsetX = 0;
+            compensatePanningOffsetX = 0;
         } else if (-1 * renderedImageCanvasOffsetX + canvas.width > offscreenCanvas.width * zoomFactor) {
-            newOffsetX = renderedImageCanvasOffsetX + (-1 * renderedImageCanvasOffsetX + canvas.width) - (offscreenCanvas.width * zoomFactor);
+            compensatePanningOffsetX = renderedImageCanvasOffsetX + (-1 * renderedImageCanvasOffsetX + canvas.width) - (offscreenCanvas.width * zoomFactor);
         } 
         if (renderedImageCanvasOffsetY > 0) {
-            newOffsetY = 0;
+            compensatePanningOffsetY = 0;
         } if (-1 * renderedImageCanvasOffsetY + canvas.height > offscreenCanvas.height * zoomFactor) {
-            newOffsetY = renderedImageCanvasOffsetY + (-1 * renderedImageCanvasOffsetY + canvas.height) - (offscreenCanvas.height * zoomFactor);
+            compensatePanningOffsetY = renderedImageCanvasOffsetY + (-1 * renderedImageCanvasOffsetY + canvas.height) - (offscreenCanvas.height * zoomFactor);
         }
-        
-       
-
-        if (newOffsetX !== renderedImageCanvasOffsetX || newOffsetY !== renderedImageCanvasOffsetY) {
-            renderedImageCanvasOffsetX = newOffsetX;
-            renderedImageCanvasOffsetY = newOffsetY;
-            // Redraw with updated offsets
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY);
-            ctx.drawImage(offscreenCanvas, 0, 0);
-        }    
     };
 
     function renderLoop() {
         if (!isPanning && !isZooming) {
             compensatePanning(); // Only compensate when no panning or zooming is happening
+
+            renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, compensatePanningOffsetX, animationSpeed);
+            renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, compensatePanningOffsetY, animationSpeed);
+            // Redraw with updated offsets
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY);
+            ctx.drawImage(offscreenCanvas, 0, 0);
+
+            // Stop animating when offsets are close enough to the target
+            if (
+                Math.abs(renderedImageCanvasOffsetX - compensatePanningOffsetX) < 0.5 &&
+                Math.abs(renderedImageCanvasOffsetY - compensatePanningOffsetY) < 0.5
+            ) {
+                renderedImageCanvasOffsetX = compensatePanningOffsetX; // Snap to target
+                renderedImageCanvasOffsetY = compensatePanningOffsetY;
+            }
         }
         requestAnimationFrame(renderLoop); // Keep the loop running
     }
@@ -110,7 +123,6 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         zoomTimeout = setTimeout(() => {
             isZooming = false; // Mark zoom as complete after delay
         }, zoomDelay); // Delay in milliseconds
-        // isZooming = false;
     });
 
     // Panning Feature
