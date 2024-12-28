@@ -2,13 +2,15 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     // Config
     const animationSpeed = 0.05; // Adjust speed (0.1 = smooth, 1 = instant)
     const zoomDelay = 500; // Delay in milliseconds after the last zoom event
-    const maxZoomFactor = 3;
+    const minTileSizeInMazeCells = 10;
+    const maxZoomFactor = Math.min(((labyrinthData.length - 1) / 2)/minTileSizeInMazeCells , ((labyrinthData[0].length - 1) / 2)/minTileSizeInMazeCells);
     const minZoomFactor = 1;
     
     // State variables
     let isZooming = false;
     let zoomFactor = 1;
     let zoomTimeout;
+    let zoomIncrement;
 
     let isPanning = false;
     let startPanningX = 0; // these coordinates track cursor coordinates at the time of LMB click that initialized panning
@@ -30,24 +32,40 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         return start * (1 - t) + end * t; // Linear interpolation formula
     }
 
+    // Utility function to get zoom increment based on current and maximum zoom levels
+    function getZoomIncrement(currentZoom, maxZoom) {
+        const zoomDistance = maxZoom - currentZoom;
+        // Determine the increment based on zoom distance
+    let increment;
+
+    if (zoomDistance < 10) {
+        // Close to max zoom, use a small increment (fine-grained zooming)
+        increment = 0.2; // Scale it for precision
+    } else if (zoomDistance < 50) {
+        // Moderate zoom, use a mid-range increment
+        increment = Math.max(0.3, zoomDistance * 0.01);
+    } else {
+        // Far from max zoom, use a larger increment
+        increment = Math.max(2, zoomDistance * 0.05); // Cap it at a reasonable max
+    };
+
+    return increment;
+};
+
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
     // Dynamically set canvas dimensions
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    canvas.width = rect.width;
+    canvas.height = rect.height;
     const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr); // Scale drawing operations
 
     const rows = labyrinthData.length;
     const cols = labyrinthData[0].length;
 
-    // Calculate integer cell size and adjust canvas dimensions
-    const cellSize = Math.floor(canvas.width / ((cols - 1) / 2));
-    canvas.width = cellSize * ((cols - 1) / 2);
-    canvas.height = cellSize * ((rows - 1) / 2);
+    // Calculate cell size and adjust canvas dimensions
+    const cellSize = (canvas.width / ((cols - 1) / 2));
 
     // Set up offscreen canvas
     const offscreenCanvas = document.createElement('canvas');
@@ -115,10 +133,12 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         const worldX = (mouseX - renderedImageCanvasOffsetX) / zoomFactor; 
         const worldY = (mouseY - renderedImageCanvasOffsetY) / zoomFactor;
 
+        zoomIncrement = getZoomIncrement(zoomFactor, maxZoomFactor);
+
         if (event.deltaY < 0) {
-            zoomFactor +=0.05;
+            zoomFactor +=zoomIncrement;
         } else {
-            zoomFactor -=0.05;
+            zoomFactor -=zoomIncrement;
         }
         zoomFactor = Math.max(minZoomFactor, Math.min(zoomFactor, maxZoomFactor));
 
