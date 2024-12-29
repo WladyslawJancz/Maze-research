@@ -117,48 +117,51 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     const snap = (val) => Math.round(val);
 
     // Loop over only path cells (even rows and columns)
-    for (let y = 1; y < rows; y += 2) {
-        for (let x = 1; x < cols; x += 2) {
-            if (labyrinthData[y][x] === 0) { // Path cell
+    // Loop over all cells
+    for (let y = 0; y < rows; y++) {
+        const isEvenRow = y % 2 === 0;
+        for (let x = 0; x < cols; x++) {
+            const isEvenCol = x % 2 === 0;
+
+            if (labyrinthData[y][x] === 0 && isEvenRow && isEvenCol) {
+                // Path cell
                 const rect_x = (x - 1) / 2;
                 const rect_y = (y - 1) / 2;
-
                 rectPath.rect(snap(rect_x * cellSize), snap(rect_y * cellSize), cellSize, cellSize);
 
-                // Check neighbors to add strokes (walls)
-                if (y > 0 && labyrinthData[y - 1][x] === 1) { // Wall above
+            } else if (labyrinthData[y][x] === 1) {
+                // Wall cells
+                if (isEvenRow && !isEvenCol) {
+                    // Horizontal walls in even rows
+                    const rect_x = (x - 1) / 2;
+                    const rect_y = y / 2;
                     linePath.moveTo(snap(rect_x * cellSize), snap(rect_y * cellSize));
                     linePath.lineTo(snap((rect_x + 1) * cellSize), snap(rect_y * cellSize));
-                }
-                if (y < rows - 1 && labyrinthData[y + 1][x] === 1) { // Wall below
-                    linePath.moveTo(snap(rect_x * cellSize), snap((rect_y + 1) * cellSize));
-                    linePath.lineTo(snap((rect_x + 1) * cellSize), snap((rect_y + 1) * cellSize));
-                }
-                if (x > 0 && labyrinthData[y][x - 1] === 1) { // Wall to the left
+                } else if (!isEvenRow && isEvenCol) {
+                    // Vertical walls in odd rows
+                    const rect_x = x / 2;
+                    const rect_y = (y - 1) / 2;
                     linePath.moveTo(snap(rect_x * cellSize), snap(rect_y * cellSize));
                     linePath.lineTo(snap(rect_x * cellSize), snap((rect_y + 1) * cellSize));
                 }
-                if (x < cols - 1 && labyrinthData[y][x + 1] === 1) { // Wall to the right
-                    linePath.moveTo(snap((rect_x + 1) * cellSize), snap(rect_y * cellSize));
-                    linePath.lineTo(snap((rect_x + 1) * cellSize), snap((rect_y + 1) * cellSize));
-                }
+            }
 
-                // Render batch when size is reached
-                if (++count >= batchSize) {
-                    applyRectStyles();
-                    offscreenCtx.fill(rectPath);
-                    offscreenCtx.stroke(rectPath);
+            // Handle batching
+            if (++count >= batchSize) {
+                applyRectStyles();
+                offscreenCtx.fill(rectPath);
+                offscreenCtx.stroke(rectPath);
 
-                    applyLineStyles();
-                    offscreenCtx.stroke(linePath);
+                applyLineStyles();
+                offscreenCtx.stroke(linePath);
 
-                    rectPath = new Path2D();
-                    linePath = new Path2D();
-                    count = 0;
-                }
+                rectPath = new Path2D();
+                linePath = new Path2D();
+                count = 0;
             }
         }
     }
+
 
     // Render remaining batch
     applyRectStyles();
