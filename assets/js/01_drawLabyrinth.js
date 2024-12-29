@@ -71,7 +71,7 @@ function drawLabyrinthAsCells(canvasId, labyrinthData) {
 
 function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData) {
     console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
-
+    console.log('Rendering maze: ', rows, 'x', cols, ' with cellSize = ', cellSize);
     // Disable anti-aliasing (optional)
     offscreenCtx.imageSmoothingEnabled = false;
 
