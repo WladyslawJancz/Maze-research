@@ -89,34 +89,46 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         ) {
             return; // No change—skip rendering
         }
+        console.time('Rendering visible cells:');
         console.log('Rendering visible cells at zoom: ', zoomFactor);
         // Update cached values to the current ones
         prevOffsetX = renderedImageCanvasOffsetX;
         prevOffsetY = renderedImageCanvasOffsetY;
         prevZoomFactor = zoomFactor;
 
-        cellSize = (canvas.width * zoomFactor) / ((cols - 1) / 2); // shared between main and offscreen
+        cellCountX = ((cols - 1) / 2);
+        cellCountY = ((rows - 1) / 2);
+        cellSize = (canvas.width * zoomFactor) / cellCountX; // shared between main and offscreen
 
         // using cells indexes (0-based) below, not maze data grid coordinates
-        const firstVisibleCellX = (renderedImageCanvasOffsetX >= 0) ? 0 : Math.floor(-renderedImageCanvasOffsetX / cellSize);
-        const lastVisibleCellX = Math.min(Math.ceil(((canvas.width - renderedImageCanvasOffsetX) / cellSize) -1), (cols - 1) / 2 - 1);
-        const firstVisibleCellY = (renderedImageCanvasOffsetY >= 0) ? 0 : Math.floor(-renderedImageCanvasOffsetY / cellSize);
-        const lastVisibleCellY = Math.min(Math.ceil(((canvas.height - renderedImageCanvasOffsetY) / cellSize) -1), (rows - 1) / 2 - 1);
+        const firstVisibleCellX = Math.max(0, Math.floor(-renderedImageCanvasOffsetX / cellSize));
+        const lastVisibleCellX = Math.min(Math.ceil(((canvas.width - renderedImageCanvasOffsetX) / cellSize) -1), cellCountX);
+        const firstVisibleCellY = Math.max(0, Math.floor(-renderedImageCanvasOffsetY / cellSize));
+        const lastVisibleCellY = Math.min(Math.ceil(((canvas.height - renderedImageCanvasOffsetY) / cellSize) -1), cellCountY);
+
+        const sliceStartX = firstVisibleCellX * 2;
+        const sliceEndX = lastVisibleCellX * 2 + 3;
+        const sliceStartY = firstVisibleCellY * 2;
+        const sliceEndY = lastVisibleCellY * 2 + 3;
+
         console.log('Visible cells along X: ', firstVisibleCellX, ' to ', lastVisibleCellX);
         console.log('Visible cells along Y: ', firstVisibleCellY, ' to ', lastVisibleCellY);
-        const visibleCellData = labyrinthData.slice(firstVisibleCellY * 2, lastVisibleCellY * 2 + 3).map(row => row.slice(firstVisibleCellX * 2, lastVisibleCellX * 2 + 3));
-        console.log('Data slice: ', 'y1 = ', firstVisibleCellY * 2, 'y2 = ', lastVisibleCellY * 2 + 2, 'x1 = ', firstVisibleCellX * 2, 'x2 = ', lastVisibleCellX * 2 + 2);
+        
+        console.time('json slicing');
+        const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
+        console.log('Data slice: ', 'y1 = ', sliceStartY, 'y2 = ', sliceEndY, 'x1 = ', sliceStartX, 'x2 = ', sliceEndX);
+        console.timeEnd('json slicing');
         const visibleCellOffsetX = (renderedImageCanvasOffsetX >= 0) ? renderedImageCanvasOffsetX : renderedImageCanvasOffsetX % cellSize;
         const visibleCellOffsetY = (renderedImageCanvasOffsetY >= 0) ? renderedImageCanvasOffsetY : renderedImageCanvasOffsetY % cellSize;
 
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // remove all previous zoom and pan transformations - realign canvas with image
         ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
+
         offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
         offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
-        console.log('Offscreen canvas: ', offscreenCanvas.width, ' x ', offscreenCanvas.height);
         offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetX, visibleCellOffsetY);
         window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData);
         ctx.drawImage(offscreenCanvas, 0, 0);
+        console.timeEnd('Rendering visible cells:');
 
     };
 
@@ -128,11 +140,6 @@ function initializeCanvasManager(canvasId, labyrinthData) {
             renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, compensatePanningOffsetX, animationSpeed);
             renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, compensatePanningOffsetY, animationSpeed);
             // Redraw with updated offsets
-            // ctx.setTransform(1, 0, 0, 1, 0, 0);
-            // ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY);
-            // ctx.drawImage(offscreenCanvas, 0, 0);
-
             drawVisibleCells();
 
             // Stop animating when offsets are close enough to the target
@@ -196,10 +203,6 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         renderedImageCanvasOffsetX = mouseX - worldX * zoomFactor;
         renderedImageCanvasOffsetY = mouseY - worldY * zoomFactor;
         
-        // ctx.setTransform(1, 0, 0, 1, 0, 0); // remove all previous zoom and pan transformations - realign canvas with image
-        // ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
-        // ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY); // Apply zoom and pan transformation
-        // ctx.drawImage(offscreenCanvas, 0, 0);  // Draw offscreen content onto the main canvas
         drawVisibleCells();
         // Debounce the end of zooming - do not compensate panning if zooming happens in quick succession
         clearTimeout(zoomTimeout); // Clear any existing timeout
@@ -231,11 +234,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         startPanningY = event.clientY;
         
         // Redraw with updated offsets
-        // ctx.setTransform(1, 0, 0, 1, 0, 0);
-        // ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawVisibleCells();
-        // ctx.setTransform(zoomFactor, 0, 0, zoomFactor, renderedImageCanvasOffsetX, renderedImageCanvasOffsetY);
-        // ctx.drawImage(offscreenCanvas, 0, 0);
     });
 
     canvas.addEventListener('mouseup', () => {
