@@ -38,19 +38,19 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
     // Utility function to get zoom increment based on current and maximum zoom levels
     function getZoomIncrement(currentZoom, maxZoom) {
-        const zoomDistance = maxZoom - currentZoom;
+        const zoomDistance = Math.round(maxZoom - currentZoom);
         // Determine the increment based on zoom distance
     let increment;
 
     if (zoomDistance < 10) {
         // Close to max zoom, use a small increment (fine-grained zooming)
         increment = 0.2; // Scale it for precision
-    } else if (zoomDistance < 50) {
+    } else if (zoomDistance < 30) {
         // Moderate zoom, use a mid-range increment
-        increment = Math.max(0.3, zoomDistance * 0.01);
+        increment = 0.5;
     } else {
         // Far from max zoom, use a larger increment
-        increment = Math.max(2, zoomDistance * 0.05); // Cap it at a reasonable max
+        increment = 1; // Cap it at a reasonable max
     };
 
     return increment;
@@ -126,7 +126,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
         offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
         offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetX, visibleCellOffsetY);
-        window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData);
+        window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor);
         ctx.drawImage(offscreenCanvas, 0, 0);
         console.timeEnd('Rendering visible cells:');
 
@@ -247,7 +247,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
     // Draw labyrinth offscreen, then redraw on the main canvas
-    window.drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData);
+    window.drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomFactor);
     ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
     ctx.drawImage(offscreenCanvas, 0, 0);  // Draw offscreen content onto the main canvas
     // Start the loop
