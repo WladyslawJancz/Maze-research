@@ -31,6 +31,8 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     let prevOffsetY = null;
     let prevZoomFactor = null;
 
+    let miniMapX, miniMapY, miniMapWidth, miniMapHeight;
+
     // Utility function used for animation
     function lerp(start, end, t) {
         return start * (1 - t) + end * t; // Linear interpolation formula
@@ -44,7 +46,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
     if (zoomDistance < 10) {
         // Close to max zoom, use a small increment (fine-grained zooming)
-        increment = 0.2; // Scale it for precision
+        increment = 0.25; // Scale it for precision
     } else if (zoomDistance < 30) {
         // Moderate zoom, use a mid-range increment
         increment = 0.5;
@@ -128,6 +130,47 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetX, visibleCellOffsetY);
         window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor);
         ctx.drawImage(offscreenCanvas, 0, 0);
+        
+        // Mini-map dimensions (10% of canvas width and height)
+        miniMapWidth = canvas.width * 0.1;
+        miniMapHeight = canvas.height * 0.1;
+
+        // Mini-map position (bottom-right corner)
+        miniMapX = canvas.width - miniMapWidth - 10;
+        miniMapY = canvas.height - miniMapHeight - 30; // Above zoom info
+
+        // Scale factors for mini-map
+        const scaleX = miniMapWidth / cellCountX;
+        const scaleY = miniMapHeight / cellCountY;
+
+        // Draw mini-map background
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.8)'; // Light gray background
+        ctx.fillRect(miniMapX, miniMapY, miniMapWidth, miniMapHeight);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'; // Border
+        ctx.strokeRect(miniMapX, miniMapY, miniMapWidth, miniMapHeight);
+
+        // Calculate viewport position inside mini-map
+        const viewX = miniMapX + (-renderedImageCanvasOffsetX / cellSize) * scaleX;
+        const viewY = miniMapY + (-renderedImageCanvasOffsetY / cellSize) * scaleY;
+        const viewWidth = (canvas.width / cellSize) * scaleX;
+        const viewHeight = (canvas.height / cellSize) * scaleY;
+
+        // Draw viewport rectangle
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; // Semi-transparent white
+        ctx.fillRect(viewX, viewY, viewWidth, viewHeight);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)'; // Border
+        ctx.strokeRect(viewX, viewY, viewWidth, viewHeight);
+
+        // Set styles for text rendering
+        ctx.font = '16px Arial';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+
+        // Draw the zoom level at bottom-right corner
+        const text = `Zoom: ${zoomFactor.toFixed(2)}x`;
+        ctx.fillText(text, canvas.width - 10, canvas.height - 10);
+
         console.timeEnd('Rendering visible cells:');
 
     };
@@ -244,6 +287,41 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     canvas.addEventListener('mouseleave', () => {
         isPanning = false; // Stop panning if mouse leaves canvas
     });
+
+    // Click-to-move support for mini-map
+    canvas.addEventListener('click', (e) => {
+        const mouseX = e.offsetX;
+        const mouseY = e.offsetY;
+
+        // Check if the click is inside the mini-map bounds
+        if (
+            mouseX >= miniMapX &&
+            mouseX <= miniMapX + miniMapWidth &&
+            mouseY >= miniMapY &&
+            mouseY <= miniMapY + miniMapHeight
+        ) {
+            // Calculate the relative position inside the mini-map
+            const scaleX = miniMapWidth / cellCountX;
+            const scaleY = miniMapHeight / cellCountY;
+
+            // Calculate the corresponding coordinates in the main canvas
+            const targetX = (mouseX - miniMapX) / scaleX; // Corresponding X in the main maze
+            const targetY = (mouseY - miniMapY) / scaleY; // Corresponding Y in the main maze
+
+            // Update the offsets to center the viewport on the clicked position
+            // Ensure the center of the clicked position on the mini-map corresponds to the center on the full canvas
+            renderedImageCanvasOffsetX = -(targetX * cellSize) + canvas.width / 2;
+            renderedImageCanvasOffsetY = -(targetY * cellSize) + canvas.height / 2;
+
+            // Clamp the offsets to avoid scrolling out of bounds
+            renderedImageCanvasOffsetX = Math.min(0, Math.max(renderedImageCanvasOffsetX, -cellCountX * cellSize + canvas.width));
+            renderedImageCanvasOffsetY = Math.min(0, Math.max(renderedImageCanvasOffsetY, -cellCountY * cellSize + canvas.height));
+
+            // Re-render the canvas with the updated offsets
+            drawVisibleCells();
+        }
+    });
+
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
     // Draw labyrinth offscreen, then redraw on the main canvas
