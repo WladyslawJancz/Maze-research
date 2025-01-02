@@ -188,9 +188,24 @@ function initializeCanvasManager(canvasId, labyrinthData) {
             compensatePanning(); // Only compensate when no panning or zooming is happening
 
 
-
-            // Stop animating when offsets are close enough to the target
-            if (
+            if (isMinimapAnimating) {
+                
+                // Handle minimap animation first
+                renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, minimapTargetOffsetX, animationSpeed);
+                renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, minimapTargetOffsetY, animationSpeed);
+                drawVisibleCells(); // Redraw during minimap animation
+    
+                // Stop minimap animation if close enough
+                if (
+                    Math.abs(renderedImageCanvasOffsetX - minimapTargetOffsetX) <= 0.5 &&
+                    Math.abs(renderedImageCanvasOffsetY - minimapTargetOffsetY) <= 0.5
+                ) {
+                    renderedImageCanvasOffsetX = minimapTargetOffsetX; // Snap to target
+                    renderedImageCanvasOffsetY = minimapTargetOffsetY;
+                    isMinimapAnimating = false; // End minimap animation
+                }
+            } else if (
+                // If minimap is not animating and compensation is needed
                 Math.abs(renderedImageCanvasOffsetX - compensatePanningOffsetX) > 0.5 ||
                 Math.abs(renderedImageCanvasOffsetY - compensatePanningOffsetY) > 0.5
             ) {
@@ -204,22 +219,6 @@ function initializeCanvasManager(canvasId, labyrinthData) {
                 ) {
                     renderedImageCanvasOffsetX = compensatePanningOffsetX; // Snap to target
                     renderedImageCanvasOffsetY = compensatePanningOffsetY;
-                }
-            } else if (isMinimapAnimating) {
-                
-                // Handle minimap animation if no compensate panning is required
-                renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, minimapTargetOffsetX, animationSpeed);
-                renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, minimapTargetOffsetY, animationSpeed);
-                drawVisibleCells(); // Redraw during minimap animation
-    
-                // Stop minimap animation if close enough
-                if (
-                    Math.abs(renderedImageCanvasOffsetX - minimapTargetOffsetX) <= 0.5 &&
-                    Math.abs(renderedImageCanvasOffsetY - minimapTargetOffsetY) <= 0.5
-                ) {
-                    renderedImageCanvasOffsetX = minimapTargetOffsetX; // Snap to target
-                    renderedImageCanvasOffsetY = minimapTargetOffsetY;
-                    isMinimapAnimating = false; // End minimap animation
                 }
             }
         }

@@ -7,12 +7,12 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     const canvasWidth = offscreenCtx.canvas.width;
 
     // Dynamic checkered mode for small scales
-    const useCheckeredMode = cellSize <= 0.004 * canvasWidth;
+    const useCheckeredMode = cellSize <= 0.005 * canvasWidth;
 
     // Configuration constants
     const batchSize = 10000;
     const rectStyle = { fill: "#F6F6F8", stroke: "#F6F6F8", lineWidth: 1 };
-    const lineStyle = { stroke: "#FFD700",
+    const lineStyle = { stroke: "#63C5DA",
                         lineWidth: Math.max(Math.round((cellSize * 0.1)), 2), 
                         lineCap: "square", 
                         lineJoin: "square",
