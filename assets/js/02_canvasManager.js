@@ -27,11 +27,16 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     let compensatePanningOffsetX = 0;
     let compensatePanningOffsetY = 0;
 
+    // Below 3 variables are needed for maze redraw function when zooming/panning
     let prevOffsetX = null;
     let prevOffsetY = null;
     let prevZoomFactor = null;
 
+    // Minimap variables
     let miniMapX, miniMapY, miniMapWidth, miniMapHeight;
+    let minimapTargetOffsetX = null;
+    let minimapTargetOffsetY = null;
+    let isMinimapAnimating = false;
 
     // Utility function used for animation
     function lerp(start, end, t) {
@@ -42,21 +47,21 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     function getZoomIncrement(currentZoom, maxZoom) {
         const zoomDistance = Math.round(maxZoom - currentZoom);
         // Determine the increment based on zoom distance
-    let increment;
+        let increment;
 
-    if (zoomDistance < 10) {
-        // Close to max zoom, use a small increment (fine-grained zooming)
-        increment = 0.25; // Scale it for precision
-    } else if (zoomDistance < 30) {
-        // Moderate zoom, use a mid-range increment
-        increment = 0.5;
-    } else {
-        // Far from max zoom, use a larger increment
-        increment = 1; // Cap it at a reasonable max
+        if (zoomDistance < 10) {
+            // Close to max zoom, use a small increment (fine-grained zooming)
+            increment = 0.25; // Scale it for precision
+        } else if (zoomDistance < 30) {
+            // Moderate zoom, use a mid-range increment
+            increment = 0.5;
+        } else {
+            // Far from max zoom, use a larger increment
+            increment = 1; // Cap it at a reasonable max
+        };
+
+        return increment;
     };
-
-    return increment;
-};
 
     // Canvas setup
     const canvas = document.getElementById(canvasId);
@@ -89,8 +94,9 @@ function initializeCanvasManager(canvasId, labyrinthData) {
             prevOffsetY === renderedImageCanvasOffsetY &&
             prevZoomFactor === zoomFactor
         ) {
-            return; // No change—skip rendering
+            return; // No change — skip rendering
         }
+
         console.time('Rendering visible cells:');
         console.log('Rendering visible cells at zoom: ', zoomFactor);
         // Update cached values to the current ones
@@ -108,6 +114,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         const firstVisibleCellY = Math.max(0, Math.floor(-renderedImageCanvasOffsetY / cellSize));
         const lastVisibleCellY = Math.min(Math.ceil(((canvas.height - renderedImageCanvasOffsetY) / cellSize) -1), cellCountY);
 
+        // slicing maze data grid/ json array
         const sliceStartX = firstVisibleCellX * 2;
         const sliceEndX = lastVisibleCellX * 2 + 3;
         const sliceStartY = firstVisibleCellY * 2;
@@ -180,18 +187,40 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         if (!isPanning && !isZooming) {
             compensatePanning(); // Only compensate when no panning or zooming is happening
 
-            renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, compensatePanningOffsetX, animationSpeed);
-            renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, compensatePanningOffsetY, animationSpeed);
-            // Redraw with updated offsets
-            drawVisibleCells();
+
 
             // Stop animating when offsets are close enough to the target
             if (
-                Math.abs(renderedImageCanvasOffsetX - compensatePanningOffsetX) < 0.5 &&
-                Math.abs(renderedImageCanvasOffsetY - compensatePanningOffsetY) < 0.5
+                Math.abs(renderedImageCanvasOffsetX - compensatePanningOffsetX) > 0.5 ||
+                Math.abs(renderedImageCanvasOffsetY - compensatePanningOffsetY) > 0.5
             ) {
-                renderedImageCanvasOffsetX = compensatePanningOffsetX; // Snap to target
-                renderedImageCanvasOffsetY = compensatePanningOffsetY;
+                renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, compensatePanningOffsetX, animationSpeed);
+                renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, compensatePanningOffsetY, animationSpeed);
+                // Redraw with updated offsets
+                drawVisibleCells();
+                if (
+                    Math.abs(renderedImageCanvasOffsetX - compensatePanningOffsetX) <= 0.5 &&
+                    Math.abs(renderedImageCanvasOffsetY - compensatePanningOffsetY) <= 0.5
+                ) {
+                    renderedImageCanvasOffsetX = compensatePanningOffsetX; // Snap to target
+                    renderedImageCanvasOffsetY = compensatePanningOffsetY;
+                }
+            } else if (isMinimapAnimating) {
+                
+                // Handle minimap animation if no compensate panning is required
+                renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, minimapTargetOffsetX, animationSpeed);
+                renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, minimapTargetOffsetY, animationSpeed);
+                drawVisibleCells(); // Redraw during minimap animation
+    
+                // Stop minimap animation if close enough
+                if (
+                    Math.abs(renderedImageCanvasOffsetX - minimapTargetOffsetX) <= 0.5 &&
+                    Math.abs(renderedImageCanvasOffsetY - minimapTargetOffsetY) <= 0.5
+                ) {
+                    renderedImageCanvasOffsetX = minimapTargetOffsetX; // Snap to target
+                    renderedImageCanvasOffsetY = minimapTargetOffsetY;
+                    isMinimapAnimating = false; // End minimap animation
+                }
             }
         }
         requestAnimationFrame(renderLoop); // Keep the loop running
@@ -218,6 +247,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     
     // Zoom feature
     canvas.addEventListener('wheel', (event) => {
+        isMinimapAnimating = false; // Cancel minimap animation
         event.preventDefault();
         if (!isZooming) isZooming = true;
         const mouseX = event.offsetX; // cursor position on canvas when event was triggered
@@ -256,6 +286,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
     // Panning Feature
     canvas.addEventListener('mousedown', (event) => {
+        isMinimapAnimating = false; // Cancel minimap animation
         isPanning = true; // Start panning
         startPanningX = event.clientX; // Track starting mouse position
         startPanningY = event.clientY;
@@ -310,24 +341,20 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
             // Update the offsets to center the viewport on the clicked position
             // Ensure the center of the clicked position on the mini-map corresponds to the center on the full canvas
-            renderedImageCanvasOffsetX = -(targetX * cellSize) + canvas.width / 2;
-            renderedImageCanvasOffsetY = -(targetY * cellSize) + canvas.height / 2;
+            minimapTargetOffsetX = -(targetX * cellSize) + canvas.width / 2;
+            minimapTargetOffsetY = -(targetY * cellSize) + canvas.height / 2;
 
             // Clamp the offsets to avoid scrolling out of bounds
-            renderedImageCanvasOffsetX = Math.min(0, Math.max(renderedImageCanvasOffsetX, -cellCountX * cellSize + canvas.width));
-            renderedImageCanvasOffsetY = Math.min(0, Math.max(renderedImageCanvasOffsetY, -cellCountY * cellSize + canvas.height));
+            minimapTargetOffsetX = Math.min(0, Math.max(minimapTargetOffsetX, -cellCountX * cellSize + canvas.width));
+            minimapTargetOffsetY = Math.min(0, Math.max(minimapTargetOffsetY, -cellCountY * cellSize + canvas.height));
 
-            // Re-render the canvas with the updated offsets
-            drawVisibleCells();
+            isMinimapAnimating = true; // Start minimap animation
         }
     });
 
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
-    // Draw labyrinth offscreen, then redraw on the main canvas
-    window.drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomFactor);
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
-    ctx.drawImage(offscreenCanvas, 0, 0);  // Draw offscreen content onto the main canvas
+    drawVisibleCells();
     // Start the loop
     renderLoop();
 
