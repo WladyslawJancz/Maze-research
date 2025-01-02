@@ -178,6 +178,34 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         const text = `Zoom: ${zoomFactor.toFixed(2)}x`;
         ctx.fillText(text, canvas.width - 10, canvas.height - 10);
 
+        // Draw scale indicator
+        let scaleIndicatorSize = 0;
+        const indicatorSizeInCells = (canvas.width * 0.1) / cellSize;
+        const divisors = [10, 5, 1, 0.5];
+        
+        // Loop through divisors and find the first match
+        for (let divisor of divisors) {
+            const indicatorSizeRounded = Math.floor(indicatorSizeInCells / divisor);
+            if (indicatorSizeRounded > 0) {
+                scaleIndicatorSize = indicatorSizeRounded * divisor; // Set the size based on divisor
+                break; // Exit loop early once a match is found
+            }
+        }
+        const scaleIndicatorLength = scaleIndicatorSize * cellSize;
+        const scaleIndicatorText = `${scaleIndicatorSize} ${scaleIndicatorSize === 1 ? 'cell' : 'cells'}`;
+        ctx.beginPath();
+        ctx.moveTo(10, canvas.height - 10);
+        ctx.lineTo(10 + scaleIndicatorLength, canvas.height - 10);
+        ctx.moveTo(10, canvas.height - 13);
+        ctx.lineTo(10, canvas.height - 7);
+        ctx.moveTo(10 + scaleIndicatorLength, canvas.height - 13);
+        ctx.lineTo(10 + scaleIndicatorLength, canvas.height - 7);
+        ctx.strokeStyle = '#000000';
+        ctx.stroke();
+        ctx.textAlign = 'left';
+        ctx.fillText(scaleIndicatorText, 8, canvas.height - 15);
+
+
         console.timeEnd('Rendering visible cells:');
 
     };
