@@ -36,12 +36,24 @@ def create_labyrinth():
     labyrinth_controls = dmc.Stack(
         id='labyrinth-controls',
         children=[
-            dmc.ColorPicker(
-                id='maze-wall-color-picker',
-                format='hex',
-                value='#63C5DA',
-                fullWidth=True,
-                persistence=True
+            dmc.Group(
+                children=[
+                    dmc.ColorPicker(
+                        id='maze-wall-color-picker',
+                        format='hex',
+                        value='#63C5DA',
+                        fullWidth=True,
+                        persistence=True
+                    ),
+                    dmc.ColorPicker(
+                        id='maze-path-color-picker',
+                        format='hex',
+                        value='#FFFFFF',
+                        fullWidth=True,
+                        persistence=True
+                    ),
+                ],
+                wrap='nowrap',
             ),
             dmc.Slider(
                 id='maze-size-slider',
@@ -81,10 +93,11 @@ def generate_dfs_labyrinth_on_refresh(n_clicks, side_size):
 # Callback to update maze style information in dcc.Store
 @callback(
     Output("maze-style-store", "data"),
-    Input("maze-wall-color-picker", "value")
+    Input("maze-wall-color-picker", "value"),
+    Input("maze-path-color-picker", "value")
 )
-def update_maze_style_store(wall_color):
-    return {'wallStroke': wall_color}
+def update_maze_style_store(wall_color, path_color):
+    return {'wallStroke': wall_color, 'pathFill': path_color}
 
 # Callback to dispatch event that triggers maze redraw with new style
 clientside_callback( # TODO: decide if style needs to be applied with a button (button input to upload new styles to store) or continuously

@@ -14,10 +14,9 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
 // Callback dispatching event that triggers maze redraw when local storage is updated
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
     namespace: Object.assign({}, (window.dash_clientside || {}).namespace, {
-        callbackUpdateLabyrinthStyle: function(wallColor) {
+        callbackUpdateLabyrinthStyle: function(mazeStyle) {
                 console.log('Style callback fired');
                 const event = new CustomEvent('mazeStyleUpdated');
-                const mazeStyle = {wallStroke: wallColor};
                 event.value = mazeStyle;
                 window.dispatchEvent(event);
         }

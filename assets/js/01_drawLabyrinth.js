@@ -10,7 +10,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     const useCheckeredMode = cellSize <= 0.005 * canvasWidth;
     // Configuration constants
     const batchSize = 500;
-    const rectStyle = { fill: "white", stroke: "white", lineWidth: 1 };
+    const rectStyle = { fill: mazeStyle.pathFill, stroke: mazeStyle.pathFill, lineWidth: 1 };
     const lineStyle = { stroke: mazeStyle.wallStroke,
                         lineWidth: Math.max(Math.round((cellSize * 0.1)), 2), 
                         lineCap: "square", 
