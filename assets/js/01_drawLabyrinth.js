@@ -9,7 +9,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     // Dynamic checkered mode for small scales
     const useCheckeredMode = cellSize <= 0.005 * canvasWidth;
     // Configuration constants
-    const batchSize = 10000;
+    const batchSize = 500;
     const rectStyle = { fill: "white", stroke: "white", lineWidth: 1 };
     const lineStyle = { stroke: mazeStyle.wallStroke,
                         lineWidth: Math.max(Math.round((cellSize * 0.1)), 2), 
@@ -22,6 +22,10 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     };
 
     let count = 0;
+
+    // Path caching setup
+    let rectPathArray = [];
+    let linePathArray = []; 
 
     // Predefine paths
     let rectPath = new Path2D();
@@ -103,12 +107,14 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
 
                 // Handle batching
                 if (++count >= batchSize) {
-                    applyRectStyles();
-                    offscreenCtx.fill(rectPath);
-                    offscreenCtx.stroke(rectPath);
+                    // applyRectStyles();
+                    // offscreenCtx.fill(rectPath);
+                    // offscreenCtx.stroke(rectPath);
 
-                    applyLineStyles();
-                    offscreenCtx.stroke(linePath);
+                    // applyLineStyles();
+                    // offscreenCtx.stroke(linePath);
+                    rectPathArray.push(rectPath);
+                    linePathArray.push(linePath);
 
                     rectPath = new Path2D();
                     linePath = new Path2D();
@@ -117,16 +123,21 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             }
         }
     }    
+    rectPathArray.push(rectPath);
+    linePathArray.push(linePath);
 
     // Render remaining batch
     applyRectStyles();
-    offscreenCtx.fill(rectPath);
-    offscreenCtx.stroke(rectPath);
+    for (const path of rectPathArray) {
+        offscreenCtx.fill(path);
+        offscreenCtx.stroke(path);
+    }
 
     applyLineStyles();
-    offscreenCtx.stroke(linePath);
-
-    // console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
+    for (const path of linePathArray) {
+        offscreenCtx.stroke(path);
+    }
+    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible
