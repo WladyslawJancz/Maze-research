@@ -38,6 +38,9 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     let minimapTargetOffsetY = null;
     let isMinimapAnimating = false;
 
+    // Maze style
+    let mazeStyle = JSON.parse(window.localStorage.getItem('maze-style-store'));
+
     // Utility function used for animation
     function lerp(start, end, t) {
         return start * (1 - t) + end * t; // Linear interpolation formula
@@ -85,20 +88,21 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     offscreenCanvas.width = canvas.width;
     offscreenCanvas.height = canvas.height;
 
-    function drawVisibleCells() {
+    function drawVisibleCells(forceDraw=false) {
         // full virtual/world size = canvas.width * zoomFactor
         // offsets should be in virtual world size units - they include zoom
             // Avoid re-rendering if offsets and zoom are unchanged
         if (
             prevOffsetX === renderedImageCanvasOffsetX &&
             prevOffsetY === renderedImageCanvasOffsetY &&
-            prevZoomFactor === zoomFactor
+            prevZoomFactor === zoomFactor &&
+            forceDraw === false
         ) {
             return; // No change — skip rendering
         }
 
-        console.time('Rendering visible cells:');
-        console.log('Rendering visible cells at zoom: ', zoomFactor);
+        // console.time('Rendering visible cells:');
+        // console.log('Rendering visible cells at zoom: ', zoomFactor);
         // Update cached values to the current ones
         prevOffsetX = renderedImageCanvasOffsetX;
         prevOffsetY = renderedImageCanvasOffsetY;
@@ -120,13 +124,13 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         const sliceStartY = firstVisibleCellY * 2;
         const sliceEndY = lastVisibleCellY * 2 + 3;
 
-        console.log('Visible cells along X: ', firstVisibleCellX, ' to ', lastVisibleCellX);
-        console.log('Visible cells along Y: ', firstVisibleCellY, ' to ', lastVisibleCellY);
+        // console.log('Visible cells along X: ', firstVisibleCellX, ' to ', lastVisibleCellX);
+        // console.log('Visible cells along Y: ', firstVisibleCellY, ' to ', lastVisibleCellY);
         
-        console.time('json slicing');
+        // console.time('json slicing');
         const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
-        console.log('Data slice: ', 'y1 = ', sliceStartY, 'y2 = ', sliceEndY, 'x1 = ', sliceStartX, 'x2 = ', sliceEndX);
-        console.timeEnd('json slicing');
+        // console.log('Data slice: ', 'y1 = ', sliceStartY, 'y2 = ', sliceEndY, 'x1 = ', sliceStartX, 'x2 = ', sliceEndX);
+        // console.timeEnd('json slicing');
         const visibleCellOffsetX = (renderedImageCanvasOffsetX >= 0) ? renderedImageCanvasOffsetX : renderedImageCanvasOffsetX % cellSize;
         const visibleCellOffsetY = (renderedImageCanvasOffsetY >= 0) ? renderedImageCanvasOffsetY : renderedImageCanvasOffsetY % cellSize;
 
@@ -135,7 +139,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
         offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
         offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetX, visibleCellOffsetY);
-        window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor);
+        window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor, mazeStyle);
         ctx.drawImage(offscreenCanvas, 0, 0);
         
         // Mini-map dimensions (10% of canvas width and height)
@@ -206,7 +210,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         ctx.fillText(scaleIndicatorText, 8, canvas.height - 15);
 
 
-        console.timeEnd('Rendering visible cells:');
+        // console.timeEnd('Rendering visible cells:');
 
     };
 
@@ -379,6 +383,12 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         }
     });
 
+    // Styling
+    // Dynamic recoloring support
+    window.addEventListener('mazeStyleUpdated', (event) => {
+        mazeStyle = JSON.parse(window.localStorage.getItem('maze-style-store'));
+        drawVisibleCells(true);
+    });
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
     drawVisibleCells();

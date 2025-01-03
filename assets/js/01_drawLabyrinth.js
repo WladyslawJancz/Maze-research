@@ -1,18 +1,17 @@
 // Define the drawing logic globally
-function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomLevel=1) {
-    console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
-    console.log('Rendering maze: ', rows, 'x', cols, ' with cellSize = ', cellSize);
+function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomLevel=1, mazeStyle) {
+    // console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
+    // console.log('Rendering maze: ', rows, 'x', cols, ' with cellSize = ', cellSize);
     // Disable anti-aliasing (optional)
     offscreenCtx.imageSmoothingEnabled = false;
     const canvasWidth = offscreenCtx.canvas.width;
 
     // Dynamic checkered mode for small scales
     const useCheckeredMode = cellSize <= 0.005 * canvasWidth;
-
     // Configuration constants
     const batchSize = 10000;
-    const rectStyle = { fill: "#F6F6F8", stroke: "#F6F6F8", lineWidth: 1 };
-    const lineStyle = { stroke: "#63C5DA",
+    const rectStyle = { fill: "white", stroke: "white", lineWidth: 1 };
+    const lineStyle = { stroke: mazeStyle.wallStroke,
                         lineWidth: Math.max(Math.round((cellSize * 0.1)), 2), 
                         lineCap: "square", 
                         lineJoin: "square",
@@ -79,7 +78,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             for (let x = 0; x < cols; x++) {
                 const isEvenCol = x % 2 === 0;
 
-                if (labyrinthData[y][x] === 0 && isEvenRow && isEvenCol) {
+                if (labyrinthData[y][x] === 0 && !isEvenRow && !isEvenCol) {
                     // Path cell
                     const rect_x = (x - 1) / 2;
                     const rect_y = (y - 1) / 2;
@@ -127,7 +126,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     applyLineStyles();
     offscreenCtx.stroke(linePath);
 
-    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
+    // console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible
