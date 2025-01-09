@@ -1,7 +1,7 @@
 import time
 import random
 import numpy as np
-def generate_dfs_labyrinth(side_size):
+def generate_dfs_labyrinth(width, height = 20):
     """Generates a square maze using randomized depth-first search algorithm in iterative implementation"""
     # random.seed(43)
 
@@ -61,21 +61,21 @@ def generate_dfs_labyrinth(side_size):
         wall_removal_time += time.time() - start_time  # Accumulate wall removal time
 
     # Initialize timing variables
-    print(f"\nCreating a {side_size} by {side_size} maze")
+    print(f"\nCreating a {width} by {height} maze")
     neighbor_search_time = 0
     wall_removal_time = 0
     total_time = time.time()
 
     # set array size for the algorithm to work and fill it with ones (unvisited paths, walls not broken). 
     # (2*x + 1) formula provides size of an array that includes all internal and external walls
-    labyrinth_array_size = 2*side_size + 1
-    labyrinth_array = np.ones((labyrinth_array_size, labyrinth_array_size))
+    labyrinth_array_width, labyrinth_array_height = 2 * width + 1, 2 * height + 1
+    labyrinth_array = np.ones((labyrinth_array_height, labyrinth_array_width))
 
     # initialize stack
     stack = []
 
     # pick a random starting cell, mark it as visited (set value to 0), and push it to the stack
-    y, x = random.choice(range(1, labyrinth_array_size - 1, 2)), random.choice(range(1, labyrinth_array_size - 1, 2))
+    y, x = random.choice(range(1, labyrinth_array_height - 1, 2)), random.choice(range(1, labyrinth_array_width - 1, 2))
     labyrinth_array[y, x] = 0
     stack.append([y, x])
 

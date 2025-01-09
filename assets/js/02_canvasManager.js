@@ -3,7 +3,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     const animationSpeed = 0.05; // Adjust speed (0.1 = smooth, 1 = instant)
     const zoomDelay = 500; // Delay in milliseconds after the last zoom event
     const minTileSizeInMazeCells = 10;
-    const maxZoomFactor = Math.min(((labyrinthData.length - 1) / 2)/minTileSizeInMazeCells , ((labyrinthData[0].length - 1) / 2)/minTileSizeInMazeCells);
+    const maxZoomFactor = Math.max(((labyrinthData.length - 1) / 2)/minTileSizeInMazeCells , ((labyrinthData[0].length - 1) / 2)/minTileSizeInMazeCells);
     const minZoomFactor = 1;
     
     // State variables
