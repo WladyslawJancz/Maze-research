@@ -18,8 +18,8 @@ def create_labyrinth():
                 children=[],
                 style={
                     'height':'100%',
-                    'aspectRatio':1,
-                    'margin':'auto'
+                    'width': '100%',
+                    'margin':'auto',
                 }
             )
         ],
@@ -30,7 +30,8 @@ def create_labyrinth():
             'boxSizing':'border-box',
             'margin':'auto',
             'overflow':'hidden',
-            'flex':5
+            'flex':5,
+            'background': '#FFFFFF'
         }
     )
     labyrinth_controls = dmc.Stack(

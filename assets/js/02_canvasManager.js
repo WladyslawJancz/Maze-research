@@ -79,8 +79,15 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     const rows = labyrinthData.length;
     const cols = labyrinthData[0].length;
 
+    const cellCountX = ((cols - 1) / 2);
+    const cellCountY = ((rows - 1) / 2);
+
     // Calculate cell size and adjust canvas dimensions
-    let cellSize = (canvas.width * zoomFactor) / ((cols - 1) / 2); // shared between main and offscreen
+    // Pick smaller cell size to fit a bigger portion of the image
+    let cellSize = Math.min(
+        (canvas.width * zoomFactor) / cellCountX,
+        (canvas.height * zoomFactor) / cellCountY
+    ); // shared between main and offscreen
 
     // Set up offscreen canvas
     const offscreenCanvas = document.createElement('canvas');
@@ -108,9 +115,10 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         prevOffsetY = renderedImageCanvasOffsetY;
         prevZoomFactor = zoomFactor;
 
-        cellCountX = ((cols - 1) / 2);
-        cellCountY = ((rows - 1) / 2);
-        cellSize = (canvas.width * zoomFactor) / cellCountX; // shared between main and offscreen
+        cellSize = Math.min(
+            (canvas.width * zoomFactor) / cellCountX,
+            (canvas.height * zoomFactor) / cellCountY
+        ); // shared between main and offscreen
 
         // using cells indexes (0-based) below, not maze data grid coordinates
         const firstVisibleCellX = Math.max(0, Math.floor(-renderedImageCanvasOffsetX / cellSize));
@@ -142,9 +150,13 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor, mazeStyle);
         ctx.drawImage(offscreenCanvas, 0, 0);
         
-        // Mini-map dimensions (10% of canvas width and height)
-        miniMapWidth = canvas.width * 0.1;
-        miniMapHeight = canvas.height * 0.1;
+        // Mini-map dimensions ( max 10% of canvas along smaller dimension)
+        const miniMapSizeFactor = Math.max(
+            (cellCountX * cellSize) / (canvas.width * 0.1),
+            (cellCountY * cellSize) / (canvas.height * 0.1)
+        );
+        miniMapWidth = cellCountX * cellSize / miniMapSizeFactor;
+        miniMapHeight = cellCountY * cellSize / miniMapSizeFactor;
 
         // Mini-map position (bottom-right corner)
         miniMapX = canvas.width - miniMapWidth - 10;
@@ -263,16 +275,25 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
         compensatePanningOffsetX = renderedImageCanvasOffsetX;
         compensatePanningOffsetY = renderedImageCanvasOffsetY;
-        
-        if (renderedImageCanvasOffsetX > 0) {
+
+        const mazeWidth = cellCountX * cellSize;
+        const mazeHeight = cellCountY * cellSize;
+        // center image if image is smaller then canvas,
+        // align left or right border if margin is visible only from left or right
+        if (mazeWidth < canvas.width) {
+            compensatePanningOffsetX = (canvas.width - mazeWidth) / 2;
+        } else if (mazeWidth >= canvas.width && renderedImageCanvasOffsetX > 0) {
             compensatePanningOffsetX = 0;
-        } else if (-1 * renderedImageCanvasOffsetX + canvas.width > offscreenCanvas.width * zoomFactor) {
-            compensatePanningOffsetX = renderedImageCanvasOffsetX + (-1 * renderedImageCanvasOffsetX + canvas.width) - (offscreenCanvas.width * zoomFactor);
-        } 
-        if (renderedImageCanvasOffsetY > 0) {
+        } else if (mazeWidth >= canvas.width && -renderedImageCanvasOffsetX > mazeWidth - canvas.width) {
+            compensatePanningOffsetX = -(mazeWidth - canvas.width);
+        }
+
+        if (mazeHeight < canvas.height) {
+            compensatePanningOffsetY = (canvas.height - mazeHeight) / 2;
+        } else if (mazeHeight >= canvas.height && renderedImageCanvasOffsetY > 0) {
             compensatePanningOffsetY = 0;
-        } if (-1 * renderedImageCanvasOffsetY + canvas.height > offscreenCanvas.height * zoomFactor) {
-            compensatePanningOffsetY = renderedImageCanvasOffsetY + (-1 * renderedImageCanvasOffsetY + canvas.height) - (offscreenCanvas.height * zoomFactor);
+        } else if (mazeHeight >= canvas.height && -renderedImageCanvasOffsetY > mazeHeight - canvas.height) {
+            compensatePanningOffsetY = -(mazeHeight - canvas.height);
         }
     };
     
@@ -389,6 +410,10 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         mazeStyle = JSON.parse(window.localStorage.getItem('maze-style-store'));
         drawVisibleCells(true);
     });
+
+    compensatePanning();
+    renderedImageCanvasOffsetX = compensatePanningOffsetX;
+    renderedImageCanvasOffsetY = compensatePanningOffsetY;
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
     drawVisibleCells();

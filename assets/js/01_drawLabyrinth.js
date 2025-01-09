@@ -5,9 +5,11 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     // Disable anti-aliasing (optional)
     offscreenCtx.imageSmoothingEnabled = false;
     const canvasWidth = offscreenCtx.canvas.width;
+    const canvasHeight = offscreenCtx.canvas.height;
 
     // Dynamic checkered mode for small scales
-    const useCheckeredMode = cellSize <= 0.005 * canvasWidth;
+    // Use checkered mode if cell size is smaller than 0.5% of the smaller canvas dimension
+    const useCheckeredMode = cellSize <= 0.005 * Math.min(canvasHeight, canvasWidth);
     // Configuration constants
     const batchSize = 500;
     const rectStyle = { fill: "white", stroke: "white", lineWidth: 1 };
@@ -137,7 +139,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     for (const path of linePathArray) {
         offscreenCtx.stroke(path);
     }
-    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
+    // console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible
