@@ -5,6 +5,9 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     const minTileSizeInMazeCells = 10;
     const maxZoomFactor = Math.max(((labyrinthData.length - 1) / 2)/minTileSizeInMazeCells , ((labyrinthData[0].length - 1) / 2)/minTileSizeInMazeCells);
     const minZoomFactor = 1;
+
+    let redrawCounter = 0;
+    const redrawCounterLimit = 100;
     
     // State variables
     let isZooming = false;
@@ -37,6 +40,14 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     let minimapTargetOffsetX = null;
     let minimapTargetOffsetY = null;
     let isMinimapAnimating = false;
+
+    // Variables for maze delta rendering
+    let prevFirstVisibleCellX = null;
+    let prevLastVisibleCellX = null;
+    let prevFirstVisibleCellY = null;
+    let prevLastVisibleCellY = null;
+    let prevVisibleCellOffsetX = null;
+    let prevVisibleCellOffsetY = null;
 
     // Maze style
     let mazeStyle = JSON.parse(window.localStorage.getItem('maze-style-store'));
@@ -108,7 +119,17 @@ function initializeCanvasManager(canvasId, labyrinthData) {
             return; // No change — skip rendering
         }
 
-        // console.time('Rendering visible cells:');
+        if (prevZoomFactor !== zoomFactor) {
+            prevFirstVisibleCellX = null;
+            prevLastVisibleCellX = null;
+            prevFirstVisibleCellY = null;
+            prevLastVisibleCellY = null;
+            prevVisibleCellOffsetX = null;
+            prevVisibleCellOffsetY = null;
+        }
+
+        console.log("OffsetX:", renderedImageCanvasOffsetX, "OffsetY:", renderedImageCanvasOffsetY)
+        console.time('Rendering visible cells:');
         // console.log('Rendering visible cells at zoom: ', zoomFactor);
         // Update cached values to the current ones
         prevOffsetX = renderedImageCanvasOffsetX;
@@ -119,36 +140,195 @@ function initializeCanvasManager(canvasId, labyrinthData) {
             (canvas.width * zoomFactor) / cellCountX,
             (canvas.height * zoomFactor) / cellCountY
         ); // shared between main and offscreen
-
+        console.log("Cell Size", cellSize);
         // using cells indexes (0-based) below, not maze data grid coordinates
         const firstVisibleCellX = Math.max(0, Math.floor(-renderedImageCanvasOffsetX / cellSize));
-        const lastVisibleCellX = Math.min(Math.ceil(((canvas.width - renderedImageCanvasOffsetX) / cellSize) -1), cellCountX);
+        const lastVisibleCellX = Math.min(Math.ceil(((canvas.width - renderedImageCanvasOffsetX) / cellSize) -1), cellCountX-1);
         const firstVisibleCellY = Math.max(0, Math.floor(-renderedImageCanvasOffsetY / cellSize));
-        const lastVisibleCellY = Math.min(Math.ceil(((canvas.height - renderedImageCanvasOffsetY) / cellSize) -1), cellCountY);
+        const lastVisibleCellY = Math.min(Math.ceil(((canvas.height - renderedImageCanvasOffsetY) / cellSize) -1), cellCountY-1);
 
-        // slicing maze data grid/ json array
-        const sliceStartX = firstVisibleCellX * 2;
-        const sliceEndX = lastVisibleCellX * 2 + 3;
-        const sliceStartY = firstVisibleCellY * 2;
-        const sliceEndY = lastVisibleCellY * 2 + 3;
-
-        // console.log('Visible cells along X: ', firstVisibleCellX, ' to ', lastVisibleCellX);
-        // console.log('Visible cells along Y: ', firstVisibleCellY, ' to ', lastVisibleCellY);
-        
-        // console.time('json slicing');
-        const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
-        // console.log('Data slice: ', 'y1 = ', sliceStartY, 'y2 = ', sliceEndY, 'x1 = ', sliceStartX, 'x2 = ', sliceEndX);
-        // console.timeEnd('json slicing');
         const visibleCellOffsetX = (renderedImageCanvasOffsetX >= 0) ? renderedImageCanvasOffsetX : renderedImageCanvasOffsetX % cellSize;
         const visibleCellOffsetY = (renderedImageCanvasOffsetY >= 0) ? renderedImageCanvasOffsetY : renderedImageCanvasOffsetY % cellSize;
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
+        if (
+                (
+                    prevFirstVisibleCellX === null &&
+                    prevLastVisibleCellX === null &&
+                    prevFirstVisibleCellY === null &&
+                    prevLastVisibleCellY === null &&
+                    prevVisibleCellOffsetX === null &&
+                    prevVisibleCellOffsetY === null
+                ) 
+                ||
+                (redrawCounter >= redrawCounterLimit)
 
-        offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
-        offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
-        offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetX, visibleCellOffsetY);
-        window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor, mazeStyle);
-        ctx.drawImage(offscreenCanvas, 0, 0);
+        ) {
+            // Complete maze redraw
+            console.log("Redrawing full maze");
+            redrawCounter = 0;
+            // slicing maze data grid/ json array
+            const sliceStartX = firstVisibleCellX * 2;
+            const sliceEndX = lastVisibleCellX * 2 + 3;
+            const sliceStartY = firstVisibleCellY * 2;
+            const sliceEndY = lastVisibleCellY * 2 + 3;
+
+            console.log('Visible cells along X: ', firstVisibleCellX, ' to ', lastVisibleCellX);
+            console.log('Visible cells along Y: ', firstVisibleCellY, ' to ', lastVisibleCellY);
+            
+            const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
+
+            offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
+            offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
+            offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetX, visibleCellOffsetY);
+            window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor, mazeStyle);
+            ctx.drawImage(offscreenCanvas, 0, 0);
+
+        } else {
+            // Partial maze redraw
+            redrawCounter++;
+            console.log("Performing partial redraw");
+            console.log("Current offs:", firstVisibleCellX, lastVisibleCellX, firstVisibleCellY, lastVisibleCellY)
+            console.log("Prev offs:", prevFirstVisibleCellX, prevLastVisibleCellX, prevFirstVisibleCellY, prevLastVisibleCellY)
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
+            // sign of below variable influences whether cells will be added (+) or not/no change (-)
+            // adding +1 always to redraw border cells due to possible partial visibility
+            // TODO: change how rendering works - offscreen canvas should have full cells visible (i.e. width = cell size * # of cells), and slice taken to main canvas according to offsets
+            const deltaVisibleCellLeft = -(firstVisibleCellX - prevFirstVisibleCellX) + 1 || 1; // reversing sign since increase in first visible cell means removal of earlier cells
+            const deltaVisibleCellRight = lastVisibleCellX - prevLastVisibleCellX + 1 || 1;
+            const deltaVisibleCellTop = -(firstVisibleCellY - prevFirstVisibleCellY) + 1|| 1;
+            const deltaVisibleCellBottom = lastVisibleCellY - prevLastVisibleCellY + 1|| 1;
+
+            console.log("Deltas: ", deltaVisibleCellLeft, deltaVisibleCellRight, deltaVisibleCellTop, deltaVisibleCellBottom)
+
+            // getting reusable segment of the maze image
+            const firstReusableCellX = Math.max(prevFirstVisibleCellX, firstVisibleCellX) + 1;
+            const firstReusableCellY = Math.max(prevFirstVisibleCellY, firstVisibleCellY) + 1;
+            const lastReusableCellX = Math.min(prevLastVisibleCellX, lastVisibleCellX) - 1;
+            const lastReusableCellY = Math.min(prevLastVisibleCellY, lastVisibleCellY) - 1;
+            
+            const reusableMazeWidth = (lastReusableCellX - firstReusableCellX + 1) * cellSize;
+            const reusableMazeHeight = (lastReusableCellY - firstReusableCellY + 1) * cellSize;
+
+            const buffer = document.createElement('canvas');
+            buffer.width = Math.ceil(reusableMazeWidth);
+            buffer.height = Math.ceil(reusableMazeHeight);
+            const bufferCtx = buffer.getContext('2d');
+            bufferCtx.imageSmoothingEnabled = false;
+
+            bufferCtx.drawImage(
+                offscreenCanvas,
+                prevVisibleCellOffsetX + (firstReusableCellX - prevFirstVisibleCellX) * cellSize,
+                prevVisibleCellOffsetY + (firstReusableCellY - prevFirstVisibleCellY) * cellSize,
+                reusableMazeWidth,
+                reusableMazeHeight,
+                0,
+                0,
+                reusableMazeWidth,
+                reusableMazeHeight
+            );
+            console.log("took reusable maze from ", 
+                prevVisibleCellOffsetX + (firstReusableCellX - prevFirstVisibleCellX) * cellSize, 
+                "of width", reusableMazeWidth
+            );
+
+            // clearing up offscreen canvas and insering maze fragments
+            offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
+            offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
+
+            
+
+            if (deltaVisibleCellLeft > 0) {
+                console.log('l');
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = Math.ceil(deltaVisibleCellLeft * cellSize);
+                tempCanvas.height = offscreenCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                const sliceStartX = firstVisibleCellX * 2;
+                const sliceEndX = (firstVisibleCellX + deltaVisibleCellLeft - 1) * 2 + 3;
+                const sliceStartY = firstVisibleCellY * 2;
+                const sliceEndY = lastVisibleCellY * 2 + 3;
+                const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
+                window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, tempCtx, visibleCellData, zoomFactor, mazeStyle);
+                offscreenCtx.drawImage(tempCanvas, visibleCellOffsetX, visibleCellOffsetY);
+                console.log(
+                    "Rendered delta maze at", visibleCellOffsetX,
+                    "of width", tempCanvas.width,
+                    "ending at", visibleCellOffsetX + tempCanvas.width
+                );
+            }     
+
+            if (deltaVisibleCellTop > 0) {
+                console.log('t');
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = offscreenCanvas.width;
+                tempCanvas.height = Math.ceil(deltaVisibleCellTop * cellSize);
+                const tempCtx = tempCanvas.getContext('2d');
+                const sliceStartX = firstVisibleCellX * 2;
+                const sliceEndX = lastVisibleCellX * 2 + 3;
+                const sliceStartY = firstVisibleCellY * 2;
+                const sliceEndY = (firstVisibleCellY + deltaVisibleCellTop - 1) * 2 + 3;
+                const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
+                window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, tempCtx, visibleCellData, zoomFactor, mazeStyle);
+                offscreenCtx.drawImage(tempCanvas, visibleCellOffsetX, visibleCellOffsetY);
+            }
+            if (deltaVisibleCellRight > 0) {
+                console.log('r');
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = Math.ceil(deltaVisibleCellRight * cellSize);
+                tempCanvas.height = offscreenCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                const sliceStartX = (lastReusableCellX + 1) * 2;
+                const sliceEndX = lastVisibleCellX * 2 + 3;
+                const sliceStartY = firstVisibleCellY * 2;
+                const sliceEndY = lastVisibleCellY * 2 + 3;
+                const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
+                window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, tempCtx, visibleCellData, zoomFactor, mazeStyle);
+                offscreenCtx.drawImage(tempCanvas, visibleCellOffsetX + reusableMazeWidth + (deltaVisibleCellLeft < 0 ? 1 : deltaVisibleCellLeft) * cellSize, visibleCellOffsetY);
+                console.log(
+                    "Rendered delta maze at", visibleCellOffsetX + reusableMazeWidth + (deltaVisibleCellLeft < 0 ? 1 : deltaVisibleCellLeft) * cellSize,
+                    "of width", tempCanvas.width,
+                    "ending at", visibleCellOffsetX + reusableMazeWidth + (deltaVisibleCellLeft < 0 ? 1 : deltaVisibleCellLeft) * cellSize + tempCanvas.width
+                );
+            }
+            if (deltaVisibleCellBottom > 0) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = offscreenCanvas.width;
+                tempCanvas.height = deltaVisibleCellBottom * cellSize;
+                const tempCtx = tempCanvas.getContext('2d');
+                const sliceStartX = firstVisibleCellX * 2;
+                const sliceEndX = lastVisibleCellX * 2 + 3;
+                const sliceStartY = (lastReusableCellY + 1) * 2;
+                const sliceEndY = lastVisibleCellY * 2 + 3;
+                const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
+                window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, tempCtx, visibleCellData, zoomFactor, mazeStyle);
+                offscreenCtx.drawImage(tempCanvas, visibleCellOffsetX, visibleCellOffsetY + reusableMazeHeight + (deltaVisibleCellTop < 0 ? 1 : deltaVisibleCellTop) * cellSize);
+            }
+
+            offscreenCtx.drawImage(buffer, 0, 0,
+                buffer.width,
+                reusableMazeHeight,
+                visibleCellOffsetX + (deltaVisibleCellLeft < 0 ? 1 : deltaVisibleCellLeft) * cellSize,
+                visibleCellOffsetY + (deltaVisibleCellTop < 0 ? 1 : deltaVisibleCellTop) * cellSize,
+                buffer.width,
+                reusableMazeHeight
+            );
+
+            console.log("Put reusable maze at", 
+                visibleCellOffsetX + (deltaVisibleCellLeft < 0 ? 1 : deltaVisibleCellLeft) * cellSize,
+                "ending at ", visibleCellOffsetX + (deltaVisibleCellLeft < 0 ? 1 : deltaVisibleCellLeft) * cellSize + buffer.width
+            );     
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
+            ctx.drawImage(offscreenCanvas, 0, 0);
+        }
+        prevFirstVisibleCellX = firstVisibleCellX;
+        prevLastVisibleCellX = lastVisibleCellX;
+        prevFirstVisibleCellY = firstVisibleCellY;
+        prevLastVisibleCellY = lastVisibleCellY;
+        prevVisibleCellOffsetX = visibleCellOffsetX;
+        prevVisibleCellOffsetY = visibleCellOffsetY;
         
         // Mini-map dimensions ( max 10% of canvas along smaller dimension)
         const miniMapSizeFactor = Math.max(
@@ -222,7 +402,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         ctx.fillText(scaleIndicatorText, 8, canvas.height - 15);
 
 
-        // console.timeEnd('Rendering visible cells:');
+        console.timeEnd('Rendering visible cells:');
 
     };
 

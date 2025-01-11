@@ -1,7 +1,7 @@
 import time
 import random
 import numpy as np
-def generate_dfs_labyrinth(width, height = 20):
+def generate_dfs_labyrinth(width, height = None):
     """Generates a square maze using randomized depth-first search algorithm in iterative implementation"""
     # random.seed(43)
 
@@ -61,6 +61,8 @@ def generate_dfs_labyrinth(width, height = 20):
         wall_removal_time += time.time() - start_time  # Accumulate wall removal time
 
     # Initialize timing variables
+    if not height:
+        height = width
     print(f"\nCreating a {width} by {height} maze")
     neighbor_search_time = 0
     wall_removal_time = 0

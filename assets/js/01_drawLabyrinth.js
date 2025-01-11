@@ -1,6 +1,6 @@
 // Define the drawing logic globally
 function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomLevel=1, mazeStyle) {
-    // console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
+    console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
     // console.log('Rendering maze: ', rows, 'x', cols, ' with cellSize = ', cellSize);
     // Disable anti-aliasing (optional)
     offscreenCtx.imageSmoothingEnabled = false;
@@ -139,7 +139,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     for (const path of linePathArray) {
         offscreenCtx.stroke(path);
     }
-    // console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
+    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible
