@@ -99,6 +99,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         // full virtual/world size = canvas.width * zoomFactor
         // offsets should be in virtual world size units - they include zoom
             // Avoid re-rendering if offsets and zoom are unchanged
+        console.time('drawVisibleCells');
         if (
             prevOffsetX === renderedImageCanvasOffsetX &&
             prevOffsetY === renderedImageCanvasOffsetY &&
@@ -222,7 +223,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         ctx.fillText(scaleIndicatorText, 8, canvas.height - 15);
 
 
-        // console.timeEnd('Rendering visible cells:');
+        console.timeEnd('drawVisibleCells');
 
     };
 
