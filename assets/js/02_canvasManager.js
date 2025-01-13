@@ -13,29 +13,25 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     let zoomIncrement;
 
     let isPanning = false;
-    let startPanningX = 0; // these coordinates track cursor coordinates at the time of LMB click that initialized panning
-    let startPanningY = 0;
+    let startingPanningCoords = { x: 0, y: 0 } // these coordinates track cursor coordinates at the time of LMB click that initialized panning
+  
 
-    // Below 2 variables describe distance of the origin of rendered image
+    // Below coordinates describe distance of the origin of rendered image
     // from the main canvas origin (top left corner);
     // the offset is updated when zooming and panning
-    let renderedImageCanvasOffsetX = 0;
-    let renderedImageCanvasOffsetY = 0;
+    let renderedImageCanvasOffsetCoords = { x: 0, y: 0 };
 
-    // Below 2 variables describe what the offset should be to not display whitespace in the main canvas
+    // Below coordinates describe what the offset should be to not display whitespace in the main canvas
     // How to move image behind the main canvas to fill the main canvas with image
-    let compensatePanningOffsetX = 0;
-    let compensatePanningOffsetY = 0;
+    let compensatePanningOffsetCoords = { x: 0, y: 0 };
 
     // Below 3 variables are needed for maze redraw function when zooming/panning
-    let prevOffsetX = null;
-    let prevOffsetY = null;
+    let prevOffsetCoords = { x: null, y: null};
     let prevZoomFactor = null;
 
     // Minimap variables
-    let miniMapX, miniMapY, miniMapWidth, miniMapHeight;
-    let minimapTargetOffsetX = null;
-    let minimapTargetOffsetY = null;
+    let miniMapOrigin, miniMapDimensions;
+    let minimapTargetOffsetCoords = { x: null, y: null};
     let isMinimapAnimating = false;
 
     // Maze style
@@ -66,6 +62,30 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         return increment;
     };
 
+    function keywiseOperation(arg1, arg2, operation) {
+        const result = {};
+        // Check if the second argument is an object or a number
+        if (typeof arg2 === 'object' && arg2 !== null && !Array.isArray(arg2)) {
+        // obj2OrNum is an object: Perform key-wise operations
+        for (const key of Object.keys(arg1)) {
+            if (arg2.hasOwnProperty(key)) {
+            result[key] = operation(arg1[key], arg2[key]);
+            } else {
+            throw new Error(`Key "${key}" is missing in the second object`);
+            }
+        }
+        } else if (typeof arg2 === 'number') {
+        // obj2OrNum is a number: Perform operations with a scalar
+        for (const key of Object.keys(arg1)) {
+            result[key] = operation(arg1[key], arg2);
+        }
+        } else {
+        throw new Error("Second argument must be either an object or a number");
+        }
+
+        return result;
+    }
+
     // Canvas setup
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -76,17 +96,17 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     canvas.height = rect.height;
     const ctx = canvas.getContext("2d");
 
-    const rows = labyrinthData.length;
-    const cols = labyrinthData[0].length;
+    const mazeDataDimensions = {
+        x: labyrinthData[0].length,
+        y: labyrinthData.length
+    };
 
-    const cellCountX = ((cols - 1) / 2);
-    const cellCountY = ((rows - 1) / 2);
-
+    const mazeCellCounts = keywiseOperation(mazeDataDimensions, 0, (val, _) => (val - 1) / 2);
     // Calculate cell size and adjust canvas dimensions
     // Pick smaller cell size to fit a bigger portion of the image
     let cellSize = Math.min(
-        (canvas.width * zoomFactor) / cellCountX,
-        (canvas.height * zoomFactor) / cellCountY
+        (canvas.width * zoomFactor) / mazeCellCounts.x,
+        (canvas.height * zoomFactor) / mazeCellCounts.y
     ); // shared between main and offscreen
 
     // Set up offscreen canvas
@@ -101,8 +121,9 @@ function initializeCanvasManager(canvasId, labyrinthData) {
             // Avoid re-rendering if offsets and zoom are unchanged
         console.time('drawVisibleCells');
         if (
-            prevOffsetX === renderedImageCanvasOffsetX &&
-            prevOffsetY === renderedImageCanvasOffsetY &&
+            Object.values(
+                keywiseOperation(prevOffsetCoords, renderedImageCanvasOffsetCoords, (x,y) => (x === y)) // prevOffset same as renderedImageCanvasOffset
+            ).every(val => val === true) &&
             prevZoomFactor === zoomFactor &&
             forceDraw === false
         ) {
@@ -112,78 +133,80 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         // console.time('Rendering visible cells:');
         // console.log('Rendering visible cells at zoom: ', zoomFactor);
         // Update cached values to the current ones
-        prevOffsetX = renderedImageCanvasOffsetX;
-        prevOffsetY = renderedImageCanvasOffsetY;
+        prevOffsetCoords = {...renderedImageCanvasOffsetCoords};
         prevZoomFactor = zoomFactor;
 
         cellSize = Math.min(
-            (canvas.width * zoomFactor) / cellCountX,
-            (canvas.height * zoomFactor) / cellCountY
+            (canvas.width * zoomFactor) / mazeCellCounts.x,
+            (canvas.height * zoomFactor) / mazeCellCounts.y
         ); // shared between main and offscreen
 
         // using cells indexes (0-based) below, not maze data grid coordinates
-        const firstVisibleCellX = Math.max(0, Math.floor(-renderedImageCanvasOffsetX / cellSize));
-        const lastVisibleCellX = Math.min(Math.ceil(((canvas.width - renderedImageCanvasOffsetX) / cellSize) -1), cellCountX);
-        const firstVisibleCellY = Math.max(0, Math.floor(-renderedImageCanvasOffsetY / cellSize));
-        const lastVisibleCellY = Math.min(Math.ceil(((canvas.height - renderedImageCanvasOffsetY) / cellSize) -1), cellCountY);
+        const firstVisibleCellCoords = keywiseOperation(renderedImageCanvasOffsetCoords, 0, (coord, _) => (Math.max(0, Math.floor(-coord / cellSize))));
+        const lastVisibleCellCoords = {
+            x: Math.min(Math.ceil(((canvas.width - renderedImageCanvasOffsetCoords.x) / cellSize) -1), mazeCellCounts.x),
+            y: Math.min(Math.ceil(((canvas.height - renderedImageCanvasOffsetCoords.y) / cellSize) -1), mazeCellCounts.y)
+        };
 
         // slicing maze data grid/ json array
-        const sliceStartX = firstVisibleCellX * 2;
-        const sliceEndX = lastVisibleCellX * 2 + 3;
-        const sliceStartY = firstVisibleCellY * 2;
-        const sliceEndY = lastVisibleCellY * 2 + 3;
+        const sliceStartCoords = keywiseOperation(firstVisibleCellCoords, 0, (coord, _) => coord * 2);
+        const sliceEndCoords = keywiseOperation(lastVisibleCellCoords, 0, (coord, _) => coord * 2 + 3);
 
         // console.log('Visible cells along X: ', firstVisibleCellX, ' to ', lastVisibleCellX);
         // console.log('Visible cells along Y: ', firstVisibleCellY, ' to ', lastVisibleCellY);
         
         // console.time('json slicing');
-        const visibleCellData = labyrinthData.slice(sliceStartY, sliceEndY).map(row => row.slice(sliceStartX, sliceEndX));
+        const visibleCellData = labyrinthData.slice(sliceStartCoords.y, sliceEndCoords.y).map(row => row.slice(sliceStartCoords.x, sliceEndCoords.x));
         // console.log('Data slice: ', 'y1 = ', sliceStartY, 'y2 = ', sliceEndY, 'x1 = ', sliceStartX, 'x2 = ', sliceEndX);
         // console.timeEnd('json slicing');
-        const visibleCellOffsetX = (renderedImageCanvasOffsetX >= 0) ? renderedImageCanvasOffsetX : renderedImageCanvasOffsetX % cellSize;
-        const visibleCellOffsetY = (renderedImageCanvasOffsetY >= 0) ? renderedImageCanvasOffsetY : renderedImageCanvasOffsetY % cellSize;
+        const visibleCellOffsetCoords = keywiseOperation(renderedImageCanvasOffsetCoords, cellSize, (offset, cell_size) => (offset >= 0) ? offset : offset % cell_size);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height); // clear canvas
 
         offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
         offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
-        offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetX, visibleCellOffsetY);
+        offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetCoords.x, visibleCellOffsetCoords.y);
         window.drawLabyrinthOffscreen(cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, zoomFactor, mazeStyle);
         ctx.drawImage(offscreenCanvas, 0, 0);
         
         // Mini-map dimensions ( max 10% of canvas along smaller dimension)
         const miniMapSizeFactor = Math.max(
-            (cellCountX * cellSize) / (canvas.width * 0.1),
-            (cellCountY * cellSize) / (canvas.height * 0.1)
+            (mazeCellCounts.x * cellSize) / (canvas.width * 0.1),
+            (mazeCellCounts.y * cellSize) / (canvas.height * 0.1)
         );
-        miniMapWidth = cellCountX * cellSize / miniMapSizeFactor;
-        miniMapHeight = cellCountY * cellSize / miniMapSizeFactor;
+        miniMapDimensions = keywiseOperation(mazeCellCounts, 0, (cells, _) => cells * cellSize / miniMapSizeFactor);
 
         // Mini-map position (bottom-right corner)
-        miniMapX = canvas.width - miniMapWidth - 10;
-        miniMapY = canvas.height - miniMapHeight - 30; // Above zoom info
+        miniMapOrigin = {
+            x: canvas.width - miniMapDimensions.x - 10,
+            y: canvas.height - miniMapDimensions.y - 30,
+        }
 
         // Scale factors for mini-map
-        const scaleX = miniMapWidth / cellCountX;
-        const scaleY = miniMapHeight / cellCountY;
+        const miniMapScale = keywiseOperation(miniMapDimensions, mazeCellCounts, (dimension, cell_count) => dimension / cell_count);
 
         // Draw mini-map background
         ctx.fillStyle = 'rgba(200, 200, 200, 0.8)'; // Light gray background
-        ctx.fillRect(miniMapX, miniMapY, miniMapWidth, miniMapHeight);
+        ctx.fillRect(miniMapOrigin.x, miniMapOrigin.y, miniMapDimensions.x, miniMapDimensions.y);
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'; // Border
-        ctx.strokeRect(miniMapX, miniMapY, miniMapWidth, miniMapHeight);
+        ctx.strokeRect(miniMapOrigin.x, miniMapOrigin.y, miniMapDimensions.x, miniMapDimensions.y);
 
         // Calculate viewport position inside mini-map
-        const viewX = miniMapX + (-renderedImageCanvasOffsetX / cellSize) * scaleX;
-        const viewY = miniMapY + (-renderedImageCanvasOffsetY / cellSize) * scaleY;
-        const viewWidth = (canvas.width / cellSize) * scaleX;
-        const viewHeight = (canvas.height / cellSize) * scaleY;
+        const viewportOrigin = {
+            x: miniMapOrigin.x + (-renderedImageCanvasOffsetCoords.x / cellSize) * miniMapScale.x,
+            y: miniMapOrigin.y + (-renderedImageCanvasOffsetCoords.y / cellSize) * miniMapScale.y
+        };
+        const viewportDimensions = {
+            x: (canvas.width / cellSize) * miniMapScale.x,
+            y: (canvas.height / cellSize) * miniMapScale.y,
+        };
+
 
         // Draw viewport rectangle
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; // Semi-transparent white
-        ctx.fillRect(viewX, viewY, viewWidth, viewHeight);
+        ctx.fillRect(viewportOrigin.x, viewportOrigin.y, viewportDimensions.x, viewportDimensions.y);
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)'; // Border
-        ctx.strokeRect(viewX, viewY, viewWidth, viewHeight);
+        ctx.strokeRect(viewportOrigin.x, viewportOrigin.y, viewportDimensions.x, viewportDimensions.y);
 
         // Set styles for text rendering
         ctx.font = '16px Arial';
@@ -231,39 +254,43 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     function renderLoop() {
         if (!isPanning && !isZooming) {
             compensatePanning(); // Only compensate when no panning or zooming is happening
-
+            // console.log("compens cond", Math.abs(renderedImageCanvasOffsetCoords.x), Math.abs(compensatePanningOffsetCoords.x));
 
             if (isMinimapAnimating) {
                 
                 // Handle minimap animation first
-                renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, minimapTargetOffsetX, animationSpeed);
-                renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, minimapTargetOffsetY, animationSpeed);
+                renderedImageCanvasOffsetCoords = keywiseOperation(
+                    renderedImageCanvasOffsetCoords, 
+                    minimapTargetOffsetCoords,
+                    (origin, target) => lerp(origin, target, animationSpeed)
+                );
                 drawVisibleCells(); // Redraw during minimap animation
     
                 // Stop minimap animation if close enough
                 if (
-                    Math.abs(renderedImageCanvasOffsetX - minimapTargetOffsetX) <= 0.5 &&
-                    Math.abs(renderedImageCanvasOffsetY - minimapTargetOffsetY) <= 0.5
+                    Math.abs(renderedImageCanvasOffsetCoords.x - minimapTargetOffsetCoords.x) <= 0.5 &&
+                    Math.abs(renderedImageCanvasOffsetCoords.y - minimapTargetOffsetCoords.y) <= 0.5
                 ) {
-                    renderedImageCanvasOffsetX = minimapTargetOffsetX; // Snap to target
-                    renderedImageCanvasOffsetY = minimapTargetOffsetY;
+                    renderedImageCanvasOffsetCoords = {...minimapTargetOffsetCoords}; // Snap to target
                     isMinimapAnimating = false; // End minimap animation
                 }
             } else if (
                 // If minimap is not animating and compensation is needed
-                Math.abs(renderedImageCanvasOffsetX - compensatePanningOffsetX) > 0.5 ||
-                Math.abs(renderedImageCanvasOffsetY - compensatePanningOffsetY) > 0.5
+                Math.abs(renderedImageCanvasOffsetCoords.x - compensatePanningOffsetCoords.x) > 0.5 ||
+                Math.abs(renderedImageCanvasOffsetCoords.y - compensatePanningOffsetCoords.y) > 0.5
             ) {
-                renderedImageCanvasOffsetX = lerp(renderedImageCanvasOffsetX, compensatePanningOffsetX, animationSpeed);
-                renderedImageCanvasOffsetY = lerp(renderedImageCanvasOffsetY, compensatePanningOffsetY, animationSpeed);
+                renderedImageCanvasOffsetCoords = keywiseOperation(
+                    renderedImageCanvasOffsetCoords, 
+                    compensatePanningOffsetCoords,
+                    (origin, target) => lerp(origin, target, animationSpeed)
+                );
                 // Redraw with updated offsets
                 drawVisibleCells();
                 if (
-                    Math.abs(renderedImageCanvasOffsetX - compensatePanningOffsetX) <= 0.5 &&
-                    Math.abs(renderedImageCanvasOffsetY - compensatePanningOffsetY) <= 0.5
+                    Math.abs(renderedImageCanvasOffsetCoords.x - compensatePanningOffsetCoords.x) <= 0.5 &&
+                    Math.abs(renderedImageCanvasOffsetCoords.y - compensatePanningOffsetCoords.y) <= 0.5
                 ) {
-                    renderedImageCanvasOffsetX = compensatePanningOffsetX; // Snap to target
-                    renderedImageCanvasOffsetY = compensatePanningOffsetY;
+                    renderedImageCanvasOffsetCoords = {...compensatePanningOffsetCoords}; // Snap to target
                 }
             }
         }
@@ -274,27 +301,26 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     function compensatePanning() {
         if (isPanning || isZooming) return;
 
-        compensatePanningOffsetX = renderedImageCanvasOffsetX;
-        compensatePanningOffsetY = renderedImageCanvasOffsetY;
+        compensatePanningOffsetCoords = {...renderedImageCanvasOffsetCoords};
 
-        const mazeWidth = cellCountX * cellSize;
-        const mazeHeight = cellCountY * cellSize;
+        const mazeWidth = mazeCellCounts.x * cellSize;
+        const mazeHeight = mazeCellCounts.y * cellSize;
         // center image if image is smaller then canvas,
         // align left or right border if margin is visible only from left or right
         if (mazeWidth < canvas.width) {
-            compensatePanningOffsetX = (canvas.width - mazeWidth) / 2;
-        } else if (mazeWidth >= canvas.width && renderedImageCanvasOffsetX > 0) {
-            compensatePanningOffsetX = 0;
-        } else if (mazeWidth >= canvas.width && -renderedImageCanvasOffsetX > mazeWidth - canvas.width) {
-            compensatePanningOffsetX = -(mazeWidth - canvas.width);
+            compensatePanningOffsetCoords.x = (canvas.width - mazeWidth) / 2;
+        } else if (mazeWidth >= canvas.width && renderedImageCanvasOffsetCoords.x > 0) {
+            compensatePanningOffsetCoords.x = 0;
+        } else if (mazeWidth >= canvas.width && -renderedImageCanvasOffsetCoords.x > mazeWidth - canvas.width) {
+            compensatePanningOffsetCoords.x = -(mazeWidth - canvas.width);
         }
 
         if (mazeHeight < canvas.height) {
-            compensatePanningOffsetY = (canvas.height - mazeHeight) / 2;
-        } else if (mazeHeight >= canvas.height && renderedImageCanvasOffsetY > 0) {
-            compensatePanningOffsetY = 0;
-        } else if (mazeHeight >= canvas.height && -renderedImageCanvasOffsetY > mazeHeight - canvas.height) {
-            compensatePanningOffsetY = -(mazeHeight - canvas.height);
+            compensatePanningOffsetCoords.y = (canvas.height - mazeHeight) / 2;
+        } else if (mazeHeight >= canvas.height && renderedImageCanvasOffsetCoords.y > 0) {
+            compensatePanningOffsetCoords.y = 0;
+        } else if (mazeHeight >= canvas.height && -renderedImageCanvasOffsetCoords.y > mazeHeight - canvas.height) {
+            compensatePanningOffsetCoords.y = -(mazeHeight - canvas.height);
         }
     };
     
@@ -303,16 +329,17 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         isMinimapAnimating = false; // Cancel minimap animation
         event.preventDefault();
         if (!isZooming) isZooming = true;
-        const mouseX = event.offsetX; // cursor position on canvas when event was triggered
-        const mouseY = event.offsetY;
+        const mousePosition = { // cursor position on canvas when event was triggered
+            x: event.offsetX,
+            y: event.offsetY
+        }
 
         // where the cursor would have pointed in the image
         // if no previous zooming or panning happened
         // translation of cursor coordinates from Image to Canvas space;
         // these operation cancel previous panning and zoom - coordinates without previous offset and zoom
         // note: zoomFactor here is the original zoom or previous applied zoom
-        const worldX = (mouseX - renderedImageCanvasOffsetX) / zoomFactor; 
-        const worldY = (mouseY - renderedImageCanvasOffsetY) / zoomFactor;
+        const worldPosition = keywiseOperation(mousePosition, renderedImageCanvasOffsetCoords, (mouse, offset) => (mouse - offset) / zoomFactor);
 
         zoomIncrement = getZoomIncrement(zoomFactor, maxZoomFactor);
 
@@ -326,8 +353,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         // how much to offset the image so that the cursor is still pointing at the same thing after zoom is applied
         // world coordinates * zoomFactor = world coordinats with new zoom
         // note: zoomFactor here is new zoom
-        renderedImageCanvasOffsetX = mouseX - worldX * zoomFactor;
-        renderedImageCanvasOffsetY = mouseY - worldY * zoomFactor;
+        renderedImageCanvasOffsetCoords = keywiseOperation(mousePosition, worldPosition, (m, w) => m - w * zoomFactor);
         
         drawVisibleCells();
         // Debounce the end of zooming - do not compensate panning if zooming happens in quick succession
@@ -341,24 +367,25 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     canvas.addEventListener('mousedown', (event) => {
         isMinimapAnimating = false; // Cancel minimap animation
         isPanning = true; // Start panning
-        startPanningX = event.clientX; // Track starting mouse position
-        startPanningY = event.clientY;
+        startingPanningCoords.x = event.clientX; // Track starting mouse position
+        startingPanningCoords.y = event.clientY;
     });
 
     canvas.addEventListener('mousemove', (event) => {
         if (!isPanning) return; // Only pan if mouse is pressed
 
         // Calculate the mouse movement (delta)
-        const deltaX = (event.clientX - startPanningX);
-        const deltaY = (event.clientY - startPanningY);
+        const deltaCoords = {
+            x: event.clientX - startingPanningCoords.x,
+            y: event.clientY - startingPanningCoords.y
+        };
 
         // Update offsets based on mouse movement
-        renderedImageCanvasOffsetX += deltaX;
-        renderedImageCanvasOffsetY += deltaY;
+        renderedImageCanvasOffsetCoords = keywiseOperation(renderedImageCanvasOffsetCoords, deltaCoords, (coords, delta) => coords + delta);
 
         // Update start position for next frame
-        startPanningX = event.clientX;
-        startPanningY = event.clientY;
+        startingPanningCoords.x = event.clientX;
+        startingPanningCoords.y = event.clientY;
         
         // Redraw with updated offsets
         drawVisibleCells();
@@ -379,27 +406,26 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
         // Check if the click is inside the mini-map bounds
         if (
-            mouseX >= miniMapX &&
-            mouseX <= miniMapX + miniMapWidth &&
-            mouseY >= miniMapY &&
-            mouseY <= miniMapY + miniMapHeight
+            mouseX >= miniMapOrigin.x &&
+            mouseX <= miniMapOrigin.x + miniMapDimensions.x &&
+            mouseY >= miniMapOrigin.y &&
+            mouseY <= miniMapOrigin.y + miniMapDimensions.y
         ) {
             // Calculate the relative position inside the mini-map
-            const scaleX = miniMapWidth / cellCountX;
-            const scaleY = miniMapHeight / cellCountY;
+            const scale = keywiseOperation(miniMapDimensions, mazeCellCounts, (mapDim, cell_count) => mapDim / cell_count);
 
             // Calculate the corresponding coordinates in the main canvas
-            const targetX = (mouseX - miniMapX) / scaleX; // Corresponding X in the main maze
-            const targetY = (mouseY - miniMapY) / scaleY; // Corresponding Y in the main maze
+            const targetX = (mouseX - miniMapOrigin.x) / scale.x; // Corresponding X in the main maze
+            const targetY = (mouseY - miniMapOrigin.y) / scale.y; // Corresponding Y in the main maze
 
             // Update the offsets to center the viewport on the clicked position
             // Ensure the center of the clicked position on the mini-map corresponds to the center on the full canvas
-            minimapTargetOffsetX = -(targetX * cellSize) + canvas.width / 2;
-            minimapTargetOffsetY = -(targetY * cellSize) + canvas.height / 2;
+            minimapTargetOffsetCoords.x = -(targetX * cellSize) + canvas.width / 2;
+            minimapTargetOffsetCoords.y = -(targetY * cellSize) + canvas.height / 2;
 
             // Clamp the offsets to avoid scrolling out of bounds
-            minimapTargetOffsetX = Math.min(0, Math.max(minimapTargetOffsetX, -cellCountX * cellSize + canvas.width));
-            minimapTargetOffsetY = Math.min(0, Math.max(minimapTargetOffsetY, -cellCountY * cellSize + canvas.height));
+            minimapTargetOffsetCoords.x = Math.min(0, Math.max(minimapTargetOffsetCoords.x, -mazeCellCounts.x * cellSize + canvas.width));
+            minimapTargetOffsetCoords.y = Math.min(0, Math.max(minimapTargetOffsetCoords.y, -mazeCellCounts.y * cellSize + canvas.height));
 
             isMinimapAnimating = true; // Start minimap animation
         }
@@ -413,8 +439,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     });
 
     compensatePanning();
-    renderedImageCanvasOffsetX = compensatePanningOffsetX;
-    renderedImageCanvasOffsetY = compensatePanningOffsetY;
+    renderedImageCanvasOffsetCoords = {...compensatePanningOffsetCoords};
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
     drawVisibleCells();
