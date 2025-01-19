@@ -100,7 +100,31 @@ const mazeStyleUpdateHandler = (State) => {
     State.mazeStyleUpdated = true;
 };
 
-function handleEventListeners(canvas, State, mode = 'attach') {
+const mazeResizer = (State, canvas, offscreenCanvas) => {
+    const prevCanvasWidth = canvas.width;
+    const prevCanvasHeight = canvas.height;
+
+    const rect = canvas.getBoundingClientRect();
+    console.log("Maze resize triggered", rect)
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    // let ctx = canvas.getContext("2d");
+    offscreenCanvas.width = canvas.width;
+    offscreenCanvas.height = canvas.height;
+
+    State.renderedImageCanvasOffsetCoords.x = State.renderedImageCanvasOffsetCoords.x + (canvas.width - prevCanvasWidth) / 2;
+    State.renderedImageCanvasOffsetCoords.y = State.renderedImageCanvasOffsetCoords.y + (canvas.height - prevCanvasHeight) / 2;
+    // State.cellSize = Math.min(
+    //     (canvas.width * State.zoomFactor) / State.mazeCellCounts.x,
+    //     (canvas.height * State.zoomFactor) / State.mazeCellCounts.y
+    // );
+
+
+
+    State.canvasResized = true;
+}
+
+function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
 
     // Store handlers in the State object to ensure consistent references
     if (!State.handlers) {
@@ -111,6 +135,7 @@ function handleEventListeners(canvas, State, mode = 'attach') {
             panningStopperFn: () => panningStopper(State),
             minimapOnClickMoverFn: (event) => minimapOnClickMover(event, State, canvas),
             mazeStyleUpdateHandlerFn: () => mazeStyleUpdateHandler(State),
+            mazeResizerFn: () => mazeResizer(State, canvas, offscreenCanvas)
         };
     }
 
@@ -148,6 +173,11 @@ function handleEventListeners(canvas, State, mode = 'attach') {
             handler: State.handlers.mazeStyleUpdateHandlerFn,
             target: window, // Optional: Bind to a different target
         },
+        {
+            type: 'resize',
+            handler: State.handlers.mazeResizerFn,
+            target: window
+        }
     ];
 
     // Determine action based on the mode

@@ -42,7 +42,8 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         mazeStyle: JSON.parse(window.localStorage.getItem('maze-style-store')),
         cellSize: null,
         mazeCellCounts: {x: null, y: null},
-        mazeStyleUpdated: false
+        mazeStyleUpdated: false,
+        canvasResized: false
     };
 
     // Canvas setup
@@ -134,7 +135,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     // Cleanup function
     const cleanup = () => {
         console.log("Cleaning up canvas manager...");
-        handleEventListeners(canvas, State, mode = "remove");
+        handleEventListeners(canvas, offscreenCanvas, State, mode = "remove");
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -154,7 +155,7 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     
     // Track active manager
     activeCanvasManager = { cleanup };
-    handleEventListeners(canvas, State, mode = "attach");
+    handleEventListeners(canvas, offscreenCanvas, State, mode = "attach");
 
 };
 

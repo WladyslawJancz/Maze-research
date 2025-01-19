@@ -9,7 +9,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
 
     // Dynamic checkered mode for small scales
     // Use checkered mode if cell size is smaller than 0.5% of the smaller canvas dimension
-    const useCheckeredMode = cellSize <= 0.005 * Math.min(canvasHeight, canvasWidth);
+    const useCheckeredMode = cellSize <= 0.005 * Math.min(canvasHeight, canvasWidth) || cellSize <= 4;
     // Configuration constants
     const batchSize = 500;
     const rectStyle = { fill: "white", stroke: "white", lineWidth: 1 };

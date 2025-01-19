@@ -85,21 +85,27 @@ function drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, lab
             keywiseOperation(State.prevOffsetCoords, State.renderedImageCanvasOffsetCoords, (x,y) => (x === y)) // prevOffset same as renderedImageCanvasOffset
         ).every(val => val === true) &&
         State.prevZoomFactor === State.zoomFactor &&
-        State.mazeStyleUpdated === false
+        State.mazeStyleUpdated === false &&
+        State.canvasResized === false
     ) {
         return; // No change — skip rendering
     }
     console.time('drawVisibleCells');
 
+    if (State.prevZoomFactor !== State.zoomFactor) {
+        State.cellSize = Math.min(
+            (canvas.width * State.zoomFactor) / State.mazeCellCounts.x,
+            (canvas.height * State.zoomFactor) / State.mazeCellCounts.y
+        )
+    }; // shared between main and offscreen
+
     // Update cached values to the current ones
     State.mazeStyleUpdated = false;
+    State.canvasResized = false;
     State.prevOffsetCoords = {...State.renderedImageCanvasOffsetCoords};
     State.prevZoomFactor = State.zoomFactor;
 
-    State.cellSize = Math.min(
-        (canvas.width * State.zoomFactor) / State.mazeCellCounts.x,
-        (canvas.height * State.zoomFactor) / State.mazeCellCounts.y
-    ); // shared between main and offscreen
+
 
     // using cells indexes (0-based) below, not maze data grid coordinates
     const firstVisibleCellCoords = keywiseOperation(State.renderedImageCanvasOffsetCoords, 0, (coord, _) => (Math.max(0, Math.floor(-coord / State.cellSize))));
