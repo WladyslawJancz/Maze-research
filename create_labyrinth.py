@@ -49,41 +49,78 @@ def create_labyrinth():
         children=[
             dmc.Group(
                 children=[
-                    dmc.ColorPicker(
-                        id="maze-wall-color-picker",
-                        format="hex",
-                        value="#63C5DA",
-                        fullWidth=True,
-                        persistence=True,
+                    dmc.Stack(
+                        children=[
+                            "Wall color",
+                            dmc.ColorPicker(
+                                id="maze-wall-color-picker",
+                                format="hex",
+                                value="#63C5DA",
+                                fullWidth=True,
+                                persistence=True,
+                            ),
+                        ],
+                        gap=5,
+                        flex=1,
                     ),
-                    dmc.ColorPicker(
-                        id="maze-path-color-picker",
-                        format="hex",
-                        value="#FFFFFF",
-                        fullWidth=True,
-                        persistence=True,
+                    dmc.Stack(
+                        children=[
+                            "Floor color",
+                            dmc.ColorPicker(
+                                id="maze-path-color-picker",
+                                format="hex",
+                                value="#FFFFFF",
+                                fullWidth=True,
+                                persistence=True,
+                            ),
+                        ],
+                        gap=5,
+                        flex=1,
                     ),
                 ],
                 wrap="nowrap",
             ),
-            dmc.Slider(
-                id="maze-width-slider",
-                value=10,
-                min=1,
-                max=500,
-                labelAlwaysOn=False,
-                persistence=True,
-            ),
-            dmc.Slider(
-                id="maze-height-slider",
-                value=10,
-                min=1,
-                max=500,
-                labelAlwaysOn=False,
-                persistence=True,
+            dmc.Stack(
+                children=[
+                    dmc.Checkbox(
+                        id="maze-square-mode-checkbox",
+                        checked=False,
+                        label="Render square maze",
+                        persistence=True,
+                    ),
+                    dmc.Group(
+                        children=[
+                            dmc.Text("Maze width", w=90),
+                            dmc.Slider(
+                                id="maze-width-slider",
+                                value=10,
+                                min=1,
+                                max=500,
+                                labelAlwaysOn=False,
+                                persistence=True,
+                                flex=4,
+                            ),
+                        ]
+                    ),
+                    dmc.Group(
+                        children=[
+                            dmc.Text("Maze height", w=90),
+                            dmc.Slider(
+                                id="maze-height-slider",
+                                value=10,
+                                min=1,
+                                max=500,
+                                labelAlwaysOn=False,
+                                persistence=True,
+                                flex=1,
+                            ),
+                        ]
+                    ),
+                ]
             ),
             dmc.Button(id="generate-maze-button", children=["Generate"]),
         ],
+        gap=60,
         flex=1,
     )
     return dmc.Group(children=[labyrinth, labyrinth_controls], h="100%")
@@ -96,8 +133,13 @@ def create_labyrinth():
     Input("generate-maze-button", "n_clicks"),  # Triggered on button click
     State("maze-width-slider", "value"),
     State("maze-height-slider", "value"),
+    State("maze-square-mode-checkbox", "checked"),
 )
-def generate_dfs_labyrinth_on_refresh(n_clicks, maze_width, maze_height):
+def generate_dfs_labyrinth_on_refresh(
+    n_clicks, maze_width, maze_height, square_mode_enabled
+):
+    if square_mode_enabled:
+        maze_height = maze_width
     labyrinth_data = generate_dfs_labyrinth(maze_width, maze_height)
 
     json_time = time.time()
@@ -132,3 +174,15 @@ clientside_callback(
     ClientsideFunction(namespace="namespace", function_name="callbackManageLabyrinth"),
     Input("labyrinth-data-store", "data"),
 )
+
+
+@callback(
+    Output("maze-height-slider", "disabled"),
+    Input("maze-square-mode-checkbox", "checked"),
+)
+def handle_square_mode(square_mode_enabled):
+    if square_mode_enabled:
+        height_slider_disabled = True
+    else:
+        height_slider_disabled = False
+    return height_slider_disabled
