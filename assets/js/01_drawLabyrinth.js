@@ -5,14 +5,16 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     // Disable anti-aliasing (optional)
     offscreenCtx.imageSmoothingEnabled = false;
     const canvasWidth = offscreenCtx.canvas.width;
+    const canvasHeight = offscreenCtx.canvas.height;
 
     // Dynamic checkered mode for small scales
-    const useCheckeredMode = cellSize <= 0.005 * canvasWidth;
+    // Use checkered mode if cell size is smaller than 0.5% of the smaller canvas dimension
+    const useCheckeredMode = cellSize <= 0.005 * Math.min(canvasHeight, canvasWidth) || cellSize <= 4;
     // Configuration constants
     const batchSize = 500;
     const rectStyle = { fill: mazeStyle.pathFill, stroke: mazeStyle.pathFill, lineWidth: 1 };
     const lineStyle = { stroke: mazeStyle.wallStroke,
-                        lineWidth: Math.max(Math.round((cellSize * 0.1)), 2), 
+                        lineWidth: Math.max(Math.round((cellSize * 0.1)), 1), 
                         lineCap: "square", 
                         lineJoin: "square",
                         // shadow: "rgba(0, 0, 0, 0.5)",
@@ -24,11 +26,9 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
     let count = 0;
 
     // Path caching setup
-    let rectPathArray = [];
     let linePathArray = []; 
 
     // Predefine paths
-    let rectPath = new Path2D();
     let linePath = new Path2D();
 
     // Function to apply rectangle styles
@@ -50,11 +50,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         // offscreenCtx.shadowOffsetY = lineStyle.shadowOffsetY;
     }
 
-    // Snap to integer pixel values
-    const snap = (val) => Math.round(val);
-
-    // Loop over only path cells (even rows and columns)
-    // Loop over all cells
+    // Loop over all cells, render only walls
     
     if (useCheckeredMode) {
         const checkeredSize = Math.max(2, Math.floor(cellSize * zoomLevel)); // Scale dynamically with zoom
@@ -81,63 +77,45 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             const isEvenRow = y % 2 === 0;
             for (let x = 0; x < cols; x++) {
                 const isEvenCol = x % 2 === 0;
-
-                if (labyrinthData[y][x] === 0 && !isEvenRow && !isEvenCol) {
-                    // Path cell
-                    const rect_x = (x - 1) / 2;
-                    const rect_y = (y - 1) / 2;
-                    rectPath.rect(snap(rect_x * cellSize), snap(rect_y * cellSize), cellSize, cellSize);
-
-                } else if (labyrinthData[y][x] === 1) {
+                if (labyrinthData[y][x] === 1) {
                     // Wall cells
                     if (isEvenRow && !isEvenCol) {
                         // Horizontal walls in even rows
                         const rect_x = (x - 1) / 2;
                         const rect_y = y / 2;
-                        linePath.moveTo(snap(rect_x * cellSize), snap(rect_y * cellSize));
-                        linePath.lineTo(snap((rect_x + 1) * cellSize), snap(rect_y * cellSize));
+                        linePath.moveTo(rect_x * cellSize, rect_y * cellSize);
+                        linePath.lineTo((rect_x + 1) * cellSize, rect_y * cellSize);
                     } else if (!isEvenRow && isEvenCol) {
                         // Vertical walls in odd rows
                         const rect_x = x / 2;
                         const rect_y = (y - 1) / 2;
-                        linePath.moveTo(snap(rect_x * cellSize), snap(rect_y * cellSize));
-                        linePath.lineTo(snap(rect_x * cellSize), snap((rect_y + 1) * cellSize));
+                        linePath.moveTo(rect_x * cellSize, rect_y * cellSize);
+                        linePath.lineTo(rect_x * cellSize, (rect_y + 1) * cellSize);
                     }
                 }
 
                 // Handle batching
                 if (++count >= batchSize) {
-                    // applyRectStyles();
-                    // offscreenCtx.fill(rectPath);
-                    // offscreenCtx.stroke(rectPath);
-
-                    // applyLineStyles();
-                    // offscreenCtx.stroke(linePath);
-                    rectPathArray.push(rectPath);
                     linePathArray.push(linePath);
-
-                    rectPath = new Path2D();
                     linePath = new Path2D();
                     count = 0;
                 }
             }
         }
+        linePathArray.push(linePath);
+        
+        // Render remaining batch
+        applyRectStyles();
+        offscreenCtx.fillRect(0, 0,
+            (cols - 1) / 2 * cellSize, 
+            (rows - 1) / 2 * cellSize
+        );
+        applyLineStyles();
+        for (const path of linePathArray) {
+            offscreenCtx.stroke(path);
+        }
+        // console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
     }    
-    rectPathArray.push(rectPath);
-    linePathArray.push(linePath);
-
-    // Render remaining batch
-    applyRectStyles();
-    for (const path of rectPathArray) {
-        offscreenCtx.fill(path);
-        offscreenCtx.stroke(path);
-    }
-
-    applyLineStyles();
-    for (const path of linePathArray) {
-        offscreenCtx.stroke(path);
-    }
-    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible
