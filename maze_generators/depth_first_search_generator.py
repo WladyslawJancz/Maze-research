@@ -110,7 +110,6 @@ def generate_dfs_labyrinth(width, height=None):
 
     labyrinth_array[-1][random.choice(range(1, labyrinth_array_width - 1, 2))] = 0
     labyrinth_array[0][random.choice(range(1, labyrinth_array_width - 1, 2))] = 0
-    print(labyrinth_array[0])
     total_time = time.time() - total_time
 
     print(f"Total Time: {total_time:.4f} seconds")
