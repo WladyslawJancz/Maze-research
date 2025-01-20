@@ -51,12 +51,11 @@ def create_labyrinth():
                 children=[
                     dmc.Stack(
                         children=[
-                            "Wall color",
-                            dmc.ColorPicker(
+                            dmc.ColorInput(
                                 id="maze-wall-color-picker",
                                 format="hex",
                                 value="#63C5DA",
-                                fullWidth=True,
+                                label="Wall color",
                                 persistence=True,
                             ),
                         ],
@@ -65,12 +64,11 @@ def create_labyrinth():
                     ),
                     dmc.Stack(
                         children=[
-                            "Floor color",
-                            dmc.ColorPicker(
+                            dmc.ColorInput(
                                 id="maze-path-color-picker",
                                 format="hex",
                                 value="#FFFFFF",
-                                fullWidth=True,
+                                label="Floor color",
                                 persistence=True,
                             ),
                         ],
@@ -94,8 +92,9 @@ def create_labyrinth():
                             dmc.Slider(
                                 id="maze-width-slider",
                                 value=10,
-                                min=1,
+                                min=5,
                                 max=500,
+                                step=5,
                                 labelAlwaysOn=False,
                                 persistence=True,
                                 flex=4,
@@ -108,8 +107,9 @@ def create_labyrinth():
                             dmc.Slider(
                                 id="maze-height-slider",
                                 value=10,
-                                min=1,
+                                min=5,
                                 max=500,
+                                step=5,
                                 labelAlwaysOn=False,
                                 persistence=True,
                                 flex=1,
