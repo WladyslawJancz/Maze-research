@@ -207,3 +207,22 @@ function drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, lab
 
     console.timeEnd('drawVisibleCells');
 };
+
+function hexToRgba(hex, alpha = 255) {
+    // Remove the '#' if present
+    hex = hex.replace(/^#/, '');
+
+    // Expand shorthand hex (#RGB to #RRGGBB)
+    if (hex.length === 3) {
+        hex = hex.split('').map(char => char + char).join('');
+    }
+
+    // Parse the hex color into red, green, and blue components
+    const bigint = parseInt(hex, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+
+    // Return the rgba color string
+    return [r, g, b, alpha];
+}
