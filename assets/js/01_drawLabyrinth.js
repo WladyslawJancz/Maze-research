@@ -14,7 +14,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
 
     // Dynamic checkered mode for small scales
     // Use checkered mode if cell size is smaller than 0.5% of the smaller canvas dimension
-    const useCheckeredMode = false; //cellSize <= 0.005 * Math.min(canvasHeight, canvasWidth) || cellSize <= 4;
+    const useCheckeredMode = cellSize <= 4;
     // Configuration constants
     // const batchSize = 500;
     const rectStyle = { fill: mazeStyle.pathFill, stroke: mazeStyle.pathFill, lineWidth: 1 };
@@ -143,39 +143,41 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         applyRectStyles();
         offscreenCtx.fillRect(0, 0, floorWidth, floorHeight);
 
-        // Prepare floor image as imageData
-        const secondaryColor = hexToRgba("#FFD2D2");
-        const floorImageDataArray = new Uint8ClampedArray(numCellsCols * numCellsRows * 4);
+        // Prepare floor image as imageData - perform only if secondary color is in the data
+        if (false) { // temporary way to prevent below from from execution
+            const secondaryColor = hexToRgba("#FFD2D2");
+            const floorImageDataArray = new Uint8ClampedArray(numCellsCols * numCellsRows * 4);
 
-        // Process secondary color tiles only (optimized with direct array access)
-        
-        for (let y = 1; y < rows; y += 2) {
-            for (let x = 1; x < cols; x += 2) {
-                if (labyrinthData[y][x] === 0) {
-                    const cellRow = (y - 1) / 2;
-                    const cellCol = (x - 1) / 2;
-                    const cellDataStart = (cellRow * numCellsCols + cellCol) * 4;
-                    // Directly assign to the array
-                    floorImageDataArray[cellDataStart] = secondaryColor[0]; // R
-                    floorImageDataArray[cellDataStart + 1] = secondaryColor[1]; // G
-                    floorImageDataArray[cellDataStart + 2] = secondaryColor[2]; // B
-                    floorImageDataArray[cellDataStart + 3] = secondaryColor[3]; // A
+            // Process secondary color tiles only (optimized with direct array access)
+            
+            for (let y = 1; y < rows; y += 2) {
+                for (let x = 1; x < cols; x += 2) {
+                    if (labyrinthData[y][x] === 0) {
+                        const cellRow = (y - 1) / 2;
+                        const cellCol = (x - 1) / 2;
+                        const cellDataStart = (cellRow * numCellsCols + cellCol) * 4;
+                        // Directly assign to the array
+                        floorImageDataArray[cellDataStart] = secondaryColor[0]; // R
+                        floorImageDataArray[cellDataStart + 1] = secondaryColor[1]; // G
+                        floorImageDataArray[cellDataStart + 2] = secondaryColor[2]; // B
+                        floorImageDataArray[cellDataStart + 3] = secondaryColor[3]; // A
+                    }
                 }
             }
-        }
-        const floorImageData = new ImageData(floorImageDataArray, numCellsCols);
-        // Create buffer canvas to allow scaling on image data
-        const bgCanvas = document.createElement('canvas');
-        bgCanvas.width = numCellsCols;
-        bgCanvas.height = numCellsRows;
-        const bgCtx = bgCanvas.getContext('2d');
-        bgCtx.putImageData(floorImageData, 0, 0);
+            const floorImageData = new ImageData(floorImageDataArray, numCellsCols);
+            // Create buffer canvas to allow scaling on image data
+            const bgCanvas = document.createElement('canvas');
+            bgCanvas.width = numCellsCols;
+            bgCanvas.height = numCellsRows;
+            const bgCtx = bgCanvas.getContext('2d');
+            bgCtx.putImageData(floorImageData, 0, 0);
 
-        // Draw the scaled image to the offscreen canvas
-        offscreenCtx.save(); // Save state for transformations
-        offscreenCtx.scale(cellSize, cellSize);
-        offscreenCtx.drawImage(bgCanvas, 0, 0); // Draw the image once at the scaled size
-        offscreenCtx.restore();
+            // Draw the scaled image to the offscreen canvas
+            offscreenCtx.save(); // Save state for transformations
+            offscreenCtx.scale(cellSize, cellSize);
+            offscreenCtx.drawImage(bgCanvas, 0, 0); // Draw the image once at the scaled size
+            offscreenCtx.restore();
+        }
 
         //Draw walls
         console.time("Drawing walls")
@@ -184,8 +186,8 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             offscreenCtx.stroke(path);
         }
         console.timeEnd("Drawing walls")
-        console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
     }    
+    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible
