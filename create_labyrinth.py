@@ -141,8 +141,8 @@ def generate_dfs_labyrinth_on_refresh(
 ):
     if square_mode_enabled:
         maze_height = maze_width
-    # labyrinth_data = generate_dfs_labyrinth(maze_width, maze_height)
-    labyrinth_data = generate_random_grid(maze_width, maze_height)
+    labyrinth_data = generate_dfs_labyrinth(maze_width, maze_height)
+    # labyrinth_data = generate_random_grid(maze_width, maze_height)
 
     json_time = time.time()
     labyrinth_data = json.dumps(labyrinth_data)
