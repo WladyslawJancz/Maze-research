@@ -1,97 +1,37 @@
 // Define the drawing logic globally
-function drawLabyrinthAsCells(canvasId, labyrinthData) {
-    console.time('drawLabyrinthExecutionTime'); // Start the timer
+function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomLevel=1, mazeStyle) {
 
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    
-    // // Dynamically set canvas dimensions
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-
-    const ctx = canvas.getContext("2d");
-
-    const rows = labyrinthData.length;
-    const cols = labyrinthData[0].length;
-
-    // Calculate integer cell size and adjust canvas dimensions
-    const cellSize = Math.ceil(canvas.width / cols);
-    canvas.width = cellSize * cols;
-    canvas.height = cellSize * rows;
-
-    // Disable anti-aliasing (optional)
-    ctx.imageSmoothingEnabled = false;
-
-    ctx.beginPath();
-    let batchSize = 10000; // Draw in chunks of 10,000 cells
-    let count = 0;
-    
-    for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-            if (labyrinthData[y][x] === 1) {
-                ctx.rect(x * cellSize, y * cellSize, cellSize, cellSize);
-                count++;
-                if (count >= batchSize) {
-                    ctx.fillStyle = "#daa520";
-                    ctx.fill();
-                    ctx.beginPath(); // Start a new batch
-                    count = 0;
-                }
-            }
-        }
-    }
-    // Final fill for remaining cells
-    ctx.fillStyle = "#daa520";
-    ctx.fill();
+    // Processes walls in 2 separate loops (horizontal and vertical) and extends lines where the wall is longer than one cell
+    // Wins original, 1.5 - 2x boost
 
 
-    count = 0;
-    ctx.beginPath();
-   
-    for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-            if (labyrinthData[y][x] === 0) {
-                ctx.rect(x * cellSize, y * cellSize, cellSize, cellSize);
-                count++;
-                if (count >= batchSize) {
-                    ctx.fillStyle = "#FFFFFF";
-                    ctx.fill();
-                    ctx.beginPath(); // Start a new batch
-                    count = 0;
-                }
-            }
-        }
-    }
-    // Final fill for remaining cells
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fill();
-    console.timeEnd('drawLabyrinthExecutionTime'); // End the timer
-}
-
-function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData) {
     console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
-
+    // console.log('Rendering maze: ', rows, 'x', cols, ' with cellSize = ', cellSize);
     // Disable anti-aliasing (optional)
     offscreenCtx.imageSmoothingEnabled = false;
+    const canvasWidth = offscreenCtx.canvas.width;
+    const canvasHeight = offscreenCtx.canvas.height;
 
+    // Dynamic checkered mode for small scales
+    // Use checkered mode if cell size is smaller than 0.5% of the smaller canvas dimension
+    const useCheckeredMode = cellSize <= 4;
     // Configuration constants
-    const batchSize = 10000;
-    const rectStyle = { fill: "#F6F6F8", stroke: "#F6F6F8", lineWidth: 1 };
-    const lineStyle = { stroke: "#FFD700",
-                        lineWidth: Math.max(Math.round((cellSize * 0.05) / 2) * 2 + 1, 1), 
-                        shadow: "rgba(0, 0, 0, 0.5)",
-                        shadowBlur: 0,
-                        shadowOffsetX: 0,
-                        shadowOffsetY: 0,
-                        lineCap: "round", 
-                        lineJoin: "round" 
+    // const batchSize = 500;
+    const rectStyle = { fill: mazeStyle.pathFill, stroke: mazeStyle.pathFill, lineWidth: 1 };
+    const lineStyle = { stroke: mazeStyle.wallStroke,
+                        lineWidth: Math.max(Math.round((cellSize * 0.1)), 1), 
+                        lineCap: "square", 
+                        lineJoin: "square",
+                        // shadow: "rgba(0, 0, 0, 0.5)",
+                        // shadowBlur: 0,
+                        // shadowOffsetX: 0,
+                        // shadowOffsetY: 0,
     };
 
-    let count = 0;
+    // Path caching setup
+    let linePathArray = []; 
 
     // Predefine paths
-    let rectPath = new Path2D();
     let linePath = new Path2D();
 
     // Function to apply rectangle styles
@@ -107,67 +47,146 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         offscreenCtx.lineWidth = lineStyle.lineWidth;
         offscreenCtx.lineCap = lineStyle.lineCap;
         offscreenCtx.lineJoin = lineStyle.lineJoin;
-        offscreenCtx.shadowColor = lineStyle.shadow;
-        offscreenCtx.shadowBlur = lineStyle.shadowBlur;
-        offscreenCtx.shadowOffsetX = lineStyle.shadowOffsetX;
-        offscreenCtx.shadowOffsetY = lineStyle.shadowOffsetY;
+        // offscreenCtx.shadowColor = lineStyle.shadow;
+        // offscreenCtx.shadowBlur = lineStyle.shadowBlur;
+        // offscreenCtx.shadowOffsetX = lineStyle.shadowOffsetX;
+        // offscreenCtx.shadowOffsetY = lineStyle.shadowOffsetY;
     }
 
-    // Snap to integer pixel values
-    const snap = (val) => Math.round(val);
+    // Loop over all cells, render only walls
+    
+    if (useCheckeredMode) {
+        const checkeredSize = Math.max(2, Math.floor(cellSize * zoomLevel)); // Scale dynamically with zoom
+        const patternCanvas = document.createElement('canvas');
+        const patternCtx = patternCanvas.getContext('2d');
+        patternCanvas.width = checkeredSize * 2;
+        patternCanvas.height = checkeredSize * 2;
 
-    // Loop over only path cells (even rows and columns)
-    for (let y = 1; y < rows; y += 2) {
-        for (let x = 1; x < cols; x += 2) {
-            if (labyrinthData[y][x] === 0) { // Path cell
-                const rect_x = (x - 1) / 2;
-                const rect_y = (y - 1) / 2;
+        // Draw checkered pattern
+        patternCtx.fillStyle = rectStyle.fill; // Light color
+        patternCtx.fillRect(0, 0, checkeredSize, checkeredSize);
+        patternCtx.fillRect(checkeredSize, checkeredSize, checkeredSize, checkeredSize);
 
-                rectPath.rect(snap(rect_x * cellSize), snap(rect_y * cellSize), cellSize, cellSize);
+        patternCtx.fillStyle = lineStyle.stroke; // Darker color
+        patternCtx.fillRect(0, checkeredSize, checkeredSize, checkeredSize);
+        patternCtx.fillRect(checkeredSize, 0, checkeredSize, checkeredSize);
 
-                // Check neighbors to add strokes (walls)
-                if (y > 0 && labyrinthData[y - 1][x] === 1) { // Wall above
-                    linePath.moveTo(snap(rect_x * cellSize), snap(rect_y * cellSize));
-                    linePath.lineTo(snap((rect_x + 1) * cellSize), snap(rect_y * cellSize));
-                }
-                if (y < rows - 1 && labyrinthData[y + 1][x] === 1) { // Wall below
-                    linePath.moveTo(snap(rect_x * cellSize), snap((rect_y + 1) * cellSize));
-                    linePath.lineTo(snap((rect_x + 1) * cellSize), snap((rect_y + 1) * cellSize));
-                }
-                if (x > 0 && labyrinthData[y][x - 1] === 1) { // Wall to the left
-                    linePath.moveTo(snap(rect_x * cellSize), snap(rect_y * cellSize));
-                    linePath.lineTo(snap(rect_x * cellSize), snap((rect_y + 1) * cellSize));
-                }
-                if (x < cols - 1 && labyrinthData[y][x + 1] === 1) { // Wall to the right
-                    linePath.moveTo(snap((rect_x + 1) * cellSize), snap(rect_y * cellSize));
-                    linePath.lineTo(snap((rect_x + 1) * cellSize), snap((rect_y + 1) * cellSize));
-                }
-
-                // Render batch when size is reached
-                if (++count >= batchSize) {
-                    applyRectStyles();
-                    offscreenCtx.fill(rectPath);
-                    offscreenCtx.stroke(rectPath);
-
-                    applyLineStyles();
-                    offscreenCtx.stroke(linePath);
-
-                    rectPath = new Path2D();
-                    linePath = new Path2D();
-                    count = 0;
+        // Use pattern as fill style
+        const pattern = offscreenCtx.createPattern(patternCanvas, 'repeat');
+        offscreenCtx.fillStyle = pattern;
+        offscreenCtx.fillRect(0, 0, cellSize * (cols - 1) / 2, cellSize * (rows - 1) / 2);
+    } else {
+        console.time("Processing horizontal walls")
+        // Draw horizontal walls
+        for (let y = 0; y < rows; y+=2) {
+            let x = 1;
+            while (x < cols) {
+                if (labyrinthData[y][x] === 0) {
+                    x+=2;
+                } else if (labyrinthData[y][x] === 1) {
+                    linePath.moveTo( cellSize * (x-1) / 2, cellSize * y / 2);
+                    let drawLine = false;                    
+                    while (x < cols && !drawLine) {
+                        if (labyrinthData[y][x] === 1) {
+                            if (x + 2 === cols) {
+                                linePath.lineTo(cellSize * ((x + 1) / 2), cellSize * y / 2);
+                                drawLine = true;
+                            }
+                            x+=2;
+                        } else if (labyrinthData[y][x] === 0) {
+                            linePath.lineTo(cellSize * ((x - 1) / 2), cellSize * y / 2)
+                            x+=2;
+                            drawLine = true;
+                        }
+                    }
                 }
             }
         }
-    }
+        console.timeEnd("Processing horizontal walls")
+        //Draw vertical walls
+        console.time("Processing vertical walls")
+        for (let x = 0; x < cols; x+=2) {
+            let y = 1;
+            while (y < rows) {
+                if (labyrinthData[y][x] === 0) {
+                    y+=2;
+                } else if (labyrinthData[y][x] === 1) {
+                    linePath.moveTo( cellSize * x / 2, cellSize * (y - 1) / 2);
+                    let drawLine = false;
+                    while (y < rows && !drawLine) {
+                        if (labyrinthData[y][x] === 1) {
+                            if (y + 2 === rows) {
+                                linePath.lineTo(cellSize * (x / 2), cellSize * ((y + 1) / 2));
+                                drawLine = true;
+                            }
+                            y+=2;
+                        } else if (labyrinthData[y][x] === 0) {
+                            linePath.lineTo(cellSize * (x / 2), cellSize * ((y - 1) / 2));
+                            y+=2;
+                            drawLine = true;
+                        }
+                    }
+                }  
+            }
+        }
+        console.timeEnd("Processing vertical walls")
+     
+        linePathArray.push(linePath);
 
-    // Render remaining batch
-    applyRectStyles();
-    offscreenCtx.fill(rectPath);
-    offscreenCtx.stroke(rectPath);
+        // Pre-calculate the width and height of the floor
+        const numCellsCols = (cols - 1) / 2;
+        const numCellsRows = (rows - 1) / 2;
+        const floorWidth = numCellsCols * cellSize;
+        const floorHeight = numCellsRows * cellSize;
 
-    applyLineStyles();
-    offscreenCtx.stroke(linePath);
+        // Cover floor with main color
+        applyRectStyles();
+        offscreenCtx.fillRect(0, 0, floorWidth, floorHeight);
 
+        // Prepare floor image as imageData - perform only if secondary color is in the data
+        if (false) { // temporary way to prevent below from from execution
+            const secondaryColor = hexToRgba("#FFD2D2");
+            const floorImageDataArray = new Uint8ClampedArray(numCellsCols * numCellsRows * 4);
+
+            // Process secondary color tiles only (optimized with direct array access)
+            
+            for (let y = 1; y < rows; y += 2) {
+                for (let x = 1; x < cols; x += 2) {
+                    if (labyrinthData[y][x] === 0) {
+                        const cellRow = (y - 1) / 2;
+                        const cellCol = (x - 1) / 2;
+                        const cellDataStart = (cellRow * numCellsCols + cellCol) * 4;
+                        // Directly assign to the array
+                        floorImageDataArray[cellDataStart] = secondaryColor[0]; // R
+                        floorImageDataArray[cellDataStart + 1] = secondaryColor[1]; // G
+                        floorImageDataArray[cellDataStart + 2] = secondaryColor[2]; // B
+                        floorImageDataArray[cellDataStart + 3] = secondaryColor[3]; // A
+                    }
+                }
+            }
+            const floorImageData = new ImageData(floorImageDataArray, numCellsCols);
+            // Create buffer canvas to allow scaling on image data
+            const bgCanvas = document.createElement('canvas');
+            bgCanvas.width = numCellsCols;
+            bgCanvas.height = numCellsRows;
+            const bgCtx = bgCanvas.getContext('2d');
+            bgCtx.putImageData(floorImageData, 0, 0);
+
+            // Draw the scaled image to the offscreen canvas
+            offscreenCtx.save(); // Save state for transformations
+            offscreenCtx.scale(cellSize, cellSize);
+            offscreenCtx.drawImage(bgCanvas, 0, 0); // Draw the image once at the scaled size
+            offscreenCtx.restore();
+        }
+
+        //Draw walls
+        console.time("Drawing walls")
+        applyLineStyles();
+        for (const path of linePathArray) {
+            offscreenCtx.stroke(path);
+        }
+        console.timeEnd("Drawing walls")
+    }    
     console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 

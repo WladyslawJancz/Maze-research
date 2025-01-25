@@ -1,32 +1,161 @@
+console.log("Loading canvas manager");
+
+let activeCanvasManager = null; // Track the active instance for cleanup
+
 function initializeCanvasManager(canvasId, labyrinthData) {
-    const canvas = document.getElementById(canvasId);
+    // Cleanup any existing instance
+    if (activeCanvasManager) {
+        activeCanvasManager.cleanup();
+        activeCanvasManager = null;
+    }
+    
+    // Config
+    const minTileSizeInMazeCells = 10;
+
+    // State variables
+    const State = {
+        animationSpeed: 0.05,
+        zoomDelay: 500,
+        maxZoomFactor: Math.max(((labyrinthData.length - 1) / 2)/minTileSizeInMazeCells , ((labyrinthData[0].length - 1) / 2)/minTileSizeInMazeCells),
+        minZoomFactor: 1,
+        isZooming: false,
+        zoomFactor: 1,
+        zoomTimeout: null,
+        zoomIncrement: null,
+        isPanning: false,
+        startingPanningCoords: { x: 0, y: 0 }, // these coordinates track cursor coordinates at the time of LMB click that initialized panning
+
+        // Below coordinates describe distance of the origin of rendered image
+        // from the main canvas origin (top left corner);
+        // the offset is updated when zooming and panning
+        renderedImageCanvasOffsetCoords: { x: 0, y: 0 },
+        // Below coordinates describe what the offset should be to not display whitespace in the main canvas
+        // How to move image behind the main canvas to fill the main canvas with image
+        compensatePanningOffsetCoords: { x: 0, y: 0 },
+        // Below 2 variables are needed for maze redraw function when zooming/panning
+        prevOffsetCoords: { x: null, y: null},
+        prevZoomFactor: null,
+        miniMapOrigin: null,
+        miniMapDimensions: null,
+        minimapTargetOffsetCoords: { x: null, y: null},
+        isMinimapAnimating: false,
+        mazeStyle: JSON.parse(window.localStorage.getItem('maze-style-store')),
+        cellSize: null,
+        mazeCellCounts: {x: null, y: null},
+        mazeStyleUpdated: false,
+        canvasResized: false
+    };
+
+    // Canvas setup
+    let canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
     // Dynamically set canvas dimensions
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr); // Scale drawing operations
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    let ctx = canvas.getContext("2d");
 
-    const rows = labyrinthData.length;
-    const cols = labyrinthData[0].length;
+    const mazeDataDimensions = {
+        x: labyrinthData[0].length,
+        y: labyrinthData.length
+    };
 
-    // Calculate integer cell size and adjust canvas dimensions
-    const cellSize = Math.ceil(canvas.width / ((cols - 1) / 2));
-    canvas.width = cellSize * ((cols - 1) / 2);
-    canvas.height = cellSize * ((rows - 1) / 2);
+    State.mazeCellCounts = keywiseOperation(mazeDataDimensions, 0, (val, _) => (val - 1) / 2);
+    // Calculate cell size and adjust canvas dimensions
+    // Pick smaller cell size to fit a bigger portion of the image
+    State.cellSize = Math.min(
+        (canvas.width * State.zoomFactor) / State.mazeCellCounts.x,
+        (canvas.height * State.zoomFactor) / State.mazeCellCounts.y
+    ); // shared between main and offscreen
 
-    const offscreenCanvas = document.createElement('canvas');
-    const offscreenCtx = offscreenCanvas.getContext('2d');
+    // Set up offscreen canvas
+    let offscreenCanvas = document.createElement('canvas');
+    let offscreenCtx = offscreenCanvas.getContext('2d');
     offscreenCanvas.width = canvas.width;
     offscreenCanvas.height = canvas.height;
 
-    // Draw labyrinth offscreen, then redraw on the main canvas
-    window.drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData);
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
-    ctx.drawImage(offscreenCanvas, 0, 0);  // Draw offscreen content onto the main canvas
+    
+
+    // Main animation loop
+    let animationFrameId = null;
+    function renderLoop() {
+
+        compensatePanning(State, canvas); 
+
+        if (State.isMinimapAnimating) {
+            
+            // Handle minimap animation first
+            State.renderedImageCanvasOffsetCoords = keywiseOperation(
+                State.renderedImageCanvasOffsetCoords, 
+                State.minimapTargetOffsetCoords,
+                (origin, target) => lerp(origin, target, State.animationSpeed)
+            );
+            drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, labyrinthData); // Redraw during minimap animation
+
+            // Stop minimap animation if close enough
+            if (
+                Math.abs(State.renderedImageCanvasOffsetCoords.x - State.minimapTargetOffsetCoords.x) <= 0.5 &&
+                Math.abs(State.renderedImageCanvasOffsetCoords.y - State.minimapTargetOffsetCoords.y) <= 0.5
+            ) {
+                State.renderedImageCanvasOffsetCoords = {...State.minimapTargetOffsetCoords}; // Snap to target
+                State.isMinimapAnimating = false; // End minimap animation
+            }
+        } else if (
+            // If minimap is not animating and compensation is needed
+            Math.abs(State.renderedImageCanvasOffsetCoords.x - State.compensatePanningOffsetCoords.x) > 0.5 ||
+            Math.abs(State.renderedImageCanvasOffsetCoords.y - State.compensatePanningOffsetCoords.y) > 0.5
+        ) {
+            State.renderedImageCanvasOffsetCoords = keywiseOperation(
+                State.renderedImageCanvasOffsetCoords, 
+                State.compensatePanningOffsetCoords,
+                (origin, target) => lerp(origin, target, State.animationSpeed)
+            );
+            // Redraw with updated offsets
+            drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, labyrinthData);
+            if (
+                Math.abs(State.renderedImageCanvasOffsetCoords.x - State.compensatePanningOffsetCoords.x) <= 0.5 &&
+                Math.abs(State.renderedImageCanvasOffsetCoords.y - State.compensatePanningOffsetCoords.y) <= 0.5
+            ) {
+                State.renderedImageCanvasOffsetCoords = {...State.compensatePanningOffsetCoords}; // Snap to target
+            }
+        } else {drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, labyrinthData)};
+
+        animationFrameId = requestAnimationFrame(renderLoop); // Keep the loop running
+    };
+    
+    compensatePanning(State, canvas);
+    State.renderedImageCanvasOffsetCoords = {...State.compensatePanningOffsetCoords};
+
+    // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
+    drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, labyrinthData);
+    // Start the loop
+    renderLoop();
+
+    // Cleanup function
+    const cleanup = () => {
+        console.log("Cleaning up canvas manager...");
+        handleEventListeners(canvas, offscreenCanvas, State, mode = "remove");
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        canvas.width = 0;
+        canvas.height = 0;
+
+        offscreenCanvas.width = 0;
+        offscreenCanvas.height = 0;
+
+        offscreenCanvas = null;
+        offscreenCtx = null;
+
+        canvas = null;
+        ctx = null;
+    };
+    
+    // Track active manager
+    activeCanvasManager = { cleanup };
+    handleEventListeners(canvas, offscreenCanvas, State, mode = "attach");
 
 };
 
