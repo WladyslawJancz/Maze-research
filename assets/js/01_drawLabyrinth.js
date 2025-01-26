@@ -1,11 +1,11 @@
 // Define the drawing logic globally
-function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomLevel=1, mazeStyle) {
+function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomLevel=1, mazeStyle, useMultiColorFloor=false) {
 
     // Processes walls in 2 separate loops (horizontal and vertical) and extends lines where the wall is longer than one cell
     // Wins original, 1.5 - 2x boost
 
 
-    console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
+    // console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
     // console.log('Rendering maze: ', rows, 'x', cols, ' with cellSize = ', cellSize);
     // Disable anti-aliasing (optional)
     offscreenCtx.imageSmoothingEnabled = false;
@@ -76,7 +76,6 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         offscreenCtx.fillStyle = pattern;
         offscreenCtx.fillRect(0, 0, cellSize * (cols - 1) / 2, cellSize * (rows - 1) / 2);
     } else {
-        console.time("Processing horizontal walls")
         // Draw horizontal walls
         for (let y = 0; y < rows; y+=2) {
             let x = 1;
@@ -102,9 +101,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
                 }
             }
         }
-        console.timeEnd("Processing horizontal walls")
         //Draw vertical walls
-        console.time("Processing vertical walls")
         for (let x = 0; x < cols; x+=2) {
             let y = 1;
             while (y < rows) {
@@ -129,7 +126,6 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
                 }  
             }
         }
-        console.timeEnd("Processing vertical walls")
      
         linePathArray.push(linePath);
 
@@ -139,31 +135,32 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         const floorWidth = numCellsCols * cellSize;
         const floorHeight = numCellsRows * cellSize;
 
-        // Cover floor with main color
-        applyRectStyles();
-        offscreenCtx.fillRect(0, 0, floorWidth, floorHeight);
+        // Prepare floor image as imageData - perform only during maze generation animation
+        if (useMultiColorFloor) {
+            const mazeFloorColors = [ // implementation for DFS maze generation.
+                hexToRgba(mazeStyle.pathFill), // index 0, value 0 in the data, clear visited backtracked cell
+                hexToRgba(mazeStyle.wallStroke), // index 1, value 1, unvisited cell / wall
+                //hexToRgba(mazeStyle.wallStroke, 50), // index 2, value 2, visited but not backtracked cell
+                [255, 255, 255, 255],
+            ]
 
-        // Prepare floor image as imageData - perform only if secondary color is in the data
-        if (false) { // temporary way to prevent below from from execution
-            const secondaryColor = hexToRgba("#FFD2D2");
-            const floorImageDataArray = new Uint8ClampedArray(numCellsCols * numCellsRows * 4);
-
-            // Process secondary color tiles only (optimized with direct array access)
+            let floorImageDataArray = new Uint8ClampedArray(numCellsCols * numCellsRows * 4);
             
             for (let y = 1; y < rows; y += 2) {
                 for (let x = 1; x < cols; x += 2) {
-                    if (labyrinthData[y][x] === 0) {
-                        const cellRow = (y - 1) / 2;
-                        const cellCol = (x - 1) / 2;
-                        const cellDataStart = (cellRow * numCellsCols + cellCol) * 4;
-                        // Directly assign to the array
-                        floorImageDataArray[cellDataStart] = secondaryColor[0]; // R
-                        floorImageDataArray[cellDataStart + 1] = secondaryColor[1]; // G
-                        floorImageDataArray[cellDataStart + 2] = secondaryColor[2]; // B
-                        floorImageDataArray[cellDataStart + 3] = secondaryColor[3]; // A
-                    }
+                    const cellValue = labyrinthData[y][x];
+                    const cellColor = mazeFloorColors[cellValue];
+                    const cellRow = (y - 1) / 2;
+                    const cellCol = (x - 1) / 2;
+                    const cellDataStart = (cellRow * numCellsCols + cellCol) * 4;
+                    // Directly assign to the array
+                    floorImageDataArray[cellDataStart] = cellColor[0]; // R
+                    floorImageDataArray[cellDataStart + 1] = cellColor[1]; // G
+                    floorImageDataArray[cellDataStart + 2] = cellColor[2]; // B
+                    floorImageDataArray[cellDataStart + 3] = cellColor[3]; // A
                 }
             }
+            
             const floorImageData = new ImageData(floorImageDataArray, numCellsCols);
             // Create buffer canvas to allow scaling on image data
             const bgCanvas = document.createElement('canvas');
@@ -177,17 +174,19 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             offscreenCtx.scale(cellSize, cellSize);
             offscreenCtx.drawImage(bgCanvas, 0, 0); // Draw the image once at the scaled size
             offscreenCtx.restore();
+        } else {
+            // Cover floor with main color
+            applyRectStyles();
+            offscreenCtx.fillRect(0, 0, floorWidth, floorHeight);
         }
 
         //Draw walls
-        console.time("Drawing walls")
         applyLineStyles();
         for (const path of linePathArray) {
             offscreenCtx.stroke(path);
         }
-        console.timeEnd("Drawing walls")
     }    
-    console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
+    // console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible

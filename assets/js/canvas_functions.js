@@ -86,7 +86,8 @@ function drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, lab
         ).every(val => val === true) &&
         State.prevZoomFactor === State.zoomFactor &&
         State.mazeStyleUpdated === false &&
-        State.canvasResized === false
+        State.canvasResized === false &&
+        State.mazeGenerationStepRendered === true
     ) {
         return; // No change — skip rendering
     }
@@ -126,7 +127,7 @@ function drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, lab
     offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
     offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
     offscreenCtx.setTransform(1, 0, 0, 1, visibleCellOffsetCoords.x, visibleCellOffsetCoords.y);
-    window.drawLabyrinthOffscreen(State.cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, State.zoomFactor, State.mazeStyle);
+    window.drawLabyrinthOffscreen(State.cellSize, visibleCellData.length, visibleCellData[0].length, offscreenCtx, visibleCellData, State.zoomFactor, State.mazeStyle, State.animateMazeGeneration);
     ctx.drawImage(offscreenCanvas, 0, 0);
     
     // Mini-map dimensions ( max 10% of canvas along smaller dimension)
@@ -205,6 +206,7 @@ function drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, lab
     ctx.textAlign = 'left';
     ctx.fillText(scaleIndicatorText, 8, canvas.height - 15);
 
+    State.mazeGenerationStepRendered = true;
     console.timeEnd('drawVisibleCells');
 };
 

@@ -2,13 +2,21 @@ console.log("Loading canvas manager");
 
 let activeCanvasManager = null; // Track the active instance for cleanup
 
-function initializeCanvasManager(canvasId, labyrinthData) {
+function initializeCanvasManager(canvasId, labyrinthDataset) {
     // Cleanup any existing instance
     if (activeCanvasManager) {
         activeCanvasManager.cleanup();
         activeCanvasManager = null;
     }
-    
+    let labyrinthDataSteps = labyrinthDataset[1];
+    let labyrinthDataFinalState = labyrinthDataset[0];
+    let labyrinthDataInitialState = [];
+    for (let i = 0; i < labyrinthDataFinalState.length; i++) {
+        labyrinthDataInitialState.push(new Array(labyrinthDataFinalState[0].length).fill(1));
+    }
+
+    let labyrinthData = labyrinthDataFinalState;
+
     // Config
     const minTileSizeInMazeCells = 10;
 
@@ -43,7 +51,10 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         cellSize: null,
         mazeCellCounts: {x: null, y: null},
         mazeStyleUpdated: false,
-        canvasResized: false
+        canvasResized: false,
+        animateMazeGeneration: true,
+        mazeGenerationStep: 0,
+        mazeGenerationStepRendered: false,
     };
 
     // Canvas setup
@@ -75,6 +86,33 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     offscreenCanvas.width = canvas.width;
     offscreenCanvas.height = canvas.height;
 
+    // Data updater loop
+    let updateDataID = null;
+    function updateData() {
+        if (!State.animateMazeGeneration) {
+            return;
+        }
+
+        if (State.mazeGenerationStep >= labyrinthDataSteps.length) {
+            State.animateMazeGeneration = false;
+            State.mazeGenerationStep = 0;
+            return;
+        }
+
+        console.log(`Updating data for maze generation ${State.mazeGenerationStep} / ${labyrinthDataSteps.length - 1}`)
+
+        let nextStepData = labyrinthData;
+        const nextStepChange = labyrinthDataSteps[State.mazeGenerationStep];
+        for (const subStep of nextStepChange) {
+            const nextStepChangeY = subStep[0];
+            const nextStepChangeX = subStep[1];
+            const nextStepChangeValue = subStep[2];
+            nextStepData[nextStepChangeY][nextStepChangeX] = nextStepChangeValue;
+        }
+        labyrinthData = nextStepData;
+        State.mazeGenerationStep++;
+        State.mazeGenerationStepRendered = false;
+    };
     
 
     // Main animation loop
@@ -128,8 +166,11 @@ function initializeCanvasManager(canvasId, labyrinthData) {
     State.renderedImageCanvasOffsetCoords = {...State.compensatePanningOffsetCoords};
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
-    drawVisibleCells(State, canvas, ctx, offscreenCanvas, offscreenCtx, labyrinthData);
     // Start the loop
+    if (State.mazeGenerationStep === 0 && State.animateMazeGeneration) {
+        labyrinthData = labyrinthDataInitialState;
+    }
+    updateDataID = setInterval(updateData, 0.1);
     renderLoop();
 
     // Cleanup function
@@ -137,6 +178,10 @@ function initializeCanvasManager(canvasId, labyrinthData) {
         console.log("Cleaning up canvas manager...");
         handleEventListeners(canvas, offscreenCanvas, State, mode = "remove");
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+        clearInterval(updateDataID);
+        updateDataID = null;
+
         offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -151,6 +196,10 @@ function initializeCanvasManager(canvasId, labyrinthData) {
 
         canvas = null;
         ctx = null;
+
+        labyrinthData = null;
+        labyrinthDataFinalState = null;
+        labyrinthDataSteps = null;
     };
     
     // Track active manager

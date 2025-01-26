@@ -63,6 +63,7 @@ def generate_dfs_labyrinth(width, height=None):
 
             # Remove the wall
             labyrinth_array[wall_y, wall_x] = 0
+            steps.append([[wall_y, wall_x, 0]])  # mark wall as removed in steps
 
         wall_removal_time += time.time() - start_time  # Accumulate wall removal time
 
@@ -81,6 +82,7 @@ def generate_dfs_labyrinth(width, height=None):
 
     # initialize stack
     stack = []
+    steps = []
 
     # pick a random starting cell, mark it as visited (set value to 0), and push it to the stack
     y, x = random.choice(range(1, labyrinth_array_height - 1, 2)), random.choice(
@@ -89,13 +91,24 @@ def generate_dfs_labyrinth(width, height=None):
     labyrinth_array[y, x] = 0
     stack.append([y, x])
 
+    backtracking = False
+
     while stack:  # ...is not empty
         # current_cell = stack[-1]
         current_cell = (
             stack.pop()
         )  # pop the last element from stack, make it a current cell
+        if not backtracking:
+            try:
+                steps[-1].append(
+                    [current_cell[0], current_cell[1], 2]
+                )  # marking current as processed by algo (val = 2)
+            except IndexError:
+                steps.append([[current_cell[0], current_cell[1], 2]])
+
         current_cell_unvisited_neighbors = get_unvisited_cell_neighbors(current_cell)
         if current_cell_unvisited_neighbors:  # ...list is not empty
+            backtracking = False
             stack.append(current_cell)  # assign current cell back to stack
             next_cell = random.choice(
                 current_cell_unvisited_neighbors
@@ -105,15 +118,26 @@ def generate_dfs_labyrinth(width, height=None):
             remove_wall_between_neighbors(current_cell, next_cell)
             labyrinth_array[tuple(next_cell)] = 0
             stack.append(next_cell)
-        # else:
-        #     stack.pop()
+        else:
+            steps.append([[current_cell[0], current_cell[1], 0]])
+            backtracking = True  # backtrack - mark current cell as free
 
-    labyrinth_array[-1][random.choice(range(1, labyrinth_array_width - 1, 2))] = 0
-    labyrinth_array[0][random.choice(range(1, labyrinth_array_width - 1, 2))] = 0
+    # Entry
+    entry_y = -1
+    entry_x = random.choice(range(1, labyrinth_array_width - 1, 2))
+    labyrinth_array[entry_y][entry_x] = 0
+    steps.append([[len(labyrinth_array) - 1, entry_x, 0]])
+
+    # Exit
+    exit_y = 0
+    exit_x = random.choice(range(1, labyrinth_array_width - 1, 2))
+    labyrinth_array[exit_y][exit_x] = 0
+    steps.append([[exit_y, exit_x, 0]])
     total_time = time.time() - total_time
 
     print(f"Total Time: {total_time:.4f} seconds")
     print(f"Neighbor Search Time: {neighbor_search_time:.4f} seconds")
     print(f"Wall Removal Time: {wall_removal_time:.4f} seconds")
+    print("Steps len: ", len(steps))
 
-    return labyrinth_array.tolist()
+    return [labyrinth_array.tolist(), steps]
