@@ -1,20 +1,16 @@
 // Define the drawing logic globally
 function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthData, zoomLevel=1, mazeStyle, useMultiColorFloor=false) {
-
-    // Processes walls in 2 separate loops (horizontal and vertical) and extends lines where the wall is longer than one cell
-    // Wins original, 1.5 - 2x boost
-
-
-    // console.time('drawLabyrinthOffscreenExecutionTime'); // Start the timer
-    // console.log('Rendering maze: ', rows, 'x', cols, ' with cellSize = ', cellSize);
-    // Disable anti-aliasing (optional)
+    // Main drawing function:
+    // Given maze data to render and other variables, renders maze in offscreen canvas
+    // Draws walls using Path2D API
+    // Renders floor either as 1 a signle rect or ImageData that is later scaled up to canvas size
+    // Draws a large 500x500 maze at cell size of <4px
+    // Disable anti-aliasing
     offscreenCtx.imageSmoothingEnabled = false;
-    const canvasWidth = offscreenCtx.canvas.width;
-    const canvasHeight = offscreenCtx.canvas.height;
 
     // Dynamic checkered mode for small scales
-    // Use checkered mode if cell size is smaller than 0.5% of the smaller canvas dimension
-    const useCheckeredMode = cellSize <= 4;
+    // Use checkered mode if cell size is smaller than N px
+    const useCheckeredMode = cellSize <= 3;
     // Configuration constants
     // const batchSize = 500;
     const rectStyle = { fill: mazeStyle.pathFill, stroke: mazeStyle.pathFill, lineWidth: 1 };
@@ -22,16 +18,9 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
                         lineWidth: Math.max(Math.round((cellSize * 0.1)), 1), 
                         lineCap: "square", 
                         lineJoin: "square",
-                        // shadow: "rgba(0, 0, 0, 0.5)",
-                        // shadowBlur: 0,
-                        // shadowOffsetX: 0,
-                        // shadowOffsetY: 0,
     };
 
-    // Path caching setup
-    let linePathArray = []; 
-
-    // Predefine paths
+    // Predefine path
     let linePath = new Path2D();
 
     // Function to apply rectangle styles
@@ -47,15 +36,14 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         offscreenCtx.lineWidth = lineStyle.lineWidth;
         offscreenCtx.lineCap = lineStyle.lineCap;
         offscreenCtx.lineJoin = lineStyle.lineJoin;
-        // offscreenCtx.shadowColor = lineStyle.shadow;
-        // offscreenCtx.shadowBlur = lineStyle.shadowBlur;
-        // offscreenCtx.shadowOffsetX = lineStyle.shadowOffsetX;
-        // offscreenCtx.shadowOffsetY = lineStyle.shadowOffsetY;
     }
 
     // Loop over all cells, render only walls
     
     if (useCheckeredMode) {
+        // Draw a simple pattern to instead of full maze when cell size < threshold
+        // Allows to keep rendering fast at zoomed-out state for large mazes when no details can be seen anyway, and visual artifacts are present
+
         const checkeredSize = Math.max(2, Math.floor(cellSize * zoomLevel)); // Scale dynamically with zoom
         const patternCanvas = document.createElement('canvas');
         const patternCtx = patternCanvas.getContext('2d');
@@ -76,6 +64,8 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         offscreenCtx.fillStyle = pattern;
         offscreenCtx.fillRect(0, 0, cellSize * (cols - 1) / 2, cellSize * (rows - 1) / 2);
     } else {
+        // Draw full detailed maze
+
         // Draw horizontal walls
         for (let y = 0; y < rows; y+=2) {
             let x = 1;
@@ -127,8 +117,6 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             }
         }
      
-        linePathArray.push(linePath);
-
         // Pre-calculate the width and height of the floor
         const numCellsCols = (cols - 1) / 2;
         const numCellsRows = (rows - 1) / 2;
@@ -139,7 +127,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
         if (useMultiColorFloor) {
             const mazeFloorColors = [ // implementation for DFS maze generation.
                 hexToRgba(mazeStyle.pathFill), // index 0, value 0 in the data, clear visited backtracked cell
-                hexToRgba(mazeStyle.wallStroke), // index 1, value 1, unvisited cell / wall
+                hexToRgba(mazeStyle.wallStroke, 128), // index 1, value 1, unvisited cell / wall
                 //hexToRgba(mazeStyle.wallStroke, 50), // index 2, value 2, visited but not backtracked cell
                 [255, 255, 255, 255],
             ]
@@ -162,7 +150,7 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             }
             
             const floorImageData = new ImageData(floorImageDataArray, numCellsCols);
-            // Create buffer canvas to allow scaling on image data
+            // Create buffer background (floor) canvas to allow scaling on image data
             const bgCanvas = document.createElement('canvas');
             bgCanvas.width = numCellsCols;
             bgCanvas.height = numCellsRows;
@@ -175,18 +163,15 @@ function drawLabyrinthOffscreen(cellSize, rows, cols, offscreenCtx, labyrinthDat
             offscreenCtx.drawImage(bgCanvas, 0, 0); // Draw the image once at the scaled size
             offscreenCtx.restore();
         } else {
-            // Cover floor with main color
+            // Cover floor with main color in one draw call of a single rect
             applyRectStyles();
             offscreenCtx.fillRect(0, 0, floorWidth, floorHeight);
         }
 
         //Draw walls
         applyLineStyles();
-        for (const path of linePathArray) {
-            offscreenCtx.stroke(path);
-        }
+        offscreenCtx.stroke(linePath);
     }    
-    // console.timeEnd('drawLabyrinthOffscreenExecutionTime'); // End the timer
 }
 
 // Export the function to make it accessible

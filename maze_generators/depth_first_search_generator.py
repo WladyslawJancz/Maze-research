@@ -100,8 +100,8 @@ def generate_dfs_labyrinth(width, height=None):
         )  # pop the last element from stack, make it a current cell
         if not backtracking:
             try:
-                steps[-1].append(
-                    [current_cell[0], current_cell[1], 2]
+                steps.append(
+                    [[current_cell[0], current_cell[1], 2]]
                 )  # marking current as processed by algo (val = 2)
             except IndexError:
                 steps.append([[current_cell[0], current_cell[1], 2]])
