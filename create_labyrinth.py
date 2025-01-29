@@ -23,7 +23,6 @@ def create_labyrinth():
         id="labyrinth",
         children=[
             dcc.Store(id="labyrinth-data-store"),
-            dcc.Store(id="maze-style-store", storage_type="local"),
             html.Canvas(
                 id="labyrinth-canvas",
                 children=[],
@@ -154,22 +153,14 @@ def generate_dfs_labyrinth_on_refresh(
     )  # Send as JSON
 
 
-# Callback to update maze style information in dcc.Store
-@callback(
-    Output("maze-style-store", "data"),
-    Input("maze-wall-color-picker", "value"),
-    Input("maze-path-color-picker", "value"),
-)
-def update_maze_style_store(wall_color, path_color):
-    return {"wallStroke": wall_color, "pathFill": path_color}
-
-
 # Callback to dispatch event that triggers maze redraw with new style
-clientside_callback(  # TODO: decide if style needs to be applied with a button (button input to upload new styles to store) or continuously
+clientside_callback(
     ClientsideFunction(
         namespace="namespace", function_name="callbackUpdateLabyrinthStyle"
     ),
-    Input("maze-style-store", "data"),
+    Input("labyrinth-data-store", "modified_timestamp"),
+    Input("maze-wall-color-picker", "value"),
+    Input("maze-path-color-picker", "value"),
 )
 
 clientside_callback(

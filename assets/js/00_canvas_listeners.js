@@ -95,8 +95,8 @@ const minimapOnClickMover = (event, State, canvas) => {
     }
 };
 
-const mazeStyleUpdateHandler = (State) => {
-    State.mazeStyle = JSON.parse(window.localStorage.getItem('maze-style-store'));
+const mazeStyleUpdateHandler = (event, State) => {
+    State.mazeStyle = event.value
     State.mazeStyleUpdated = true;
 };
 
@@ -134,7 +134,7 @@ function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
             panningHandlerFn: (event) => panningHandler(event, State),
             panningStopperFn: () => panningStopper(State),
             minimapOnClickMoverFn: (event) => minimapOnClickMover(event, State, canvas),
-            mazeStyleUpdateHandlerFn: () => mazeStyleUpdateHandler(State),
+            mazeStyleUpdateHandlerFn: (event) => mazeStyleUpdateHandler(event, State),
             mazeResizerFn: () => mazeResizer(State, canvas, offscreenCanvas)
         };
     }

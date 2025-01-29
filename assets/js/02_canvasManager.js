@@ -47,7 +47,7 @@ function initializeCanvasManager(canvasId, labyrinthDataset) {
         miniMapDimensions: null,
         minimapTargetOffsetCoords: { x: null, y: null},
         isMinimapAnimating: false,
-        mazeStyle: JSON.parse(window.localStorage.getItem('maze-style-store')),
+        mazeStyle: {"wallStroke": "#FFFFFF", "pathFill": "#FFFFFF"},
         cellSize: null,
         mazeCellCounts: {x: null, y: null},
         mazeStyleUpdated: false,
