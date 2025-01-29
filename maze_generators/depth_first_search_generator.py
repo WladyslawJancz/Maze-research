@@ -63,7 +63,7 @@ def generate_dfs_labyrinth(width, height=None):
 
             # Remove the wall
             labyrinth_array[wall_y, wall_x] = 0
-            steps.append([[wall_y, wall_x, 0]])  # mark wall as removed in steps
+            steps.extend([wall_y, wall_x, 0])  # mark wall as removed in steps
 
         wall_removal_time += time.time() - start_time  # Accumulate wall removal time
 
@@ -100,11 +100,11 @@ def generate_dfs_labyrinth(width, height=None):
         )  # pop the last element from stack, make it a current cell
         if not backtracking:
             try:
-                steps.append(
-                    [[current_cell[0], current_cell[1], 2]]
+                steps.extend(
+                    [current_cell[0], current_cell[1], 2]
                 )  # marking current as processed by algo (val = 2)
             except IndexError:
-                steps.append([[current_cell[0], current_cell[1], 2]])
+                steps.extend([current_cell[0], current_cell[1], 2])
 
         current_cell_unvisited_neighbors = get_unvisited_cell_neighbors(current_cell)
         if current_cell_unvisited_neighbors:  # ...list is not empty
@@ -119,20 +119,20 @@ def generate_dfs_labyrinth(width, height=None):
             labyrinth_array[tuple(next_cell)] = 0
             stack.append(next_cell)
         else:
-            steps.append([[current_cell[0], current_cell[1], 0]])
+            steps.extend([current_cell[0], current_cell[1], 0])
             backtracking = True  # backtrack - mark current cell as free
 
     # Entry
     entry_y = -1
     entry_x = random.choice(range(1, labyrinth_array_width - 1, 2))
     labyrinth_array[entry_y][entry_x] = 0
-    steps.append([[len(labyrinth_array) - 1, entry_x, 0]])
+    steps.extend([len(labyrinth_array) - 1, entry_x, 0])
 
     # Exit
     exit_y = 0
     exit_x = random.choice(range(1, labyrinth_array_width - 1, 2))
     labyrinth_array[exit_y][exit_x] = 0
-    steps.append([[exit_y, exit_x, 0]])
+    steps.extend([exit_y, exit_x, 0])
     total_time = time.time() - total_time
 
     print(f"Total Time: {total_time:.4f} seconds")

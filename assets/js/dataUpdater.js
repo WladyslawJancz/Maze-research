@@ -1,11 +1,14 @@
 // Data updater loop
 let updateDataID = null;
 let mazeGenerationStep = 0;
+let requestedMazeGenerationStep = null;
 let labyrinthDataSteps = null;
+let labyrinthDataNumSteps = null;
 let labyrinthData = null;
+let labyrinthDataInitialState = null;
 let lastUpdateTime = 0;
 let finalThrottledUpdatePosted = false;
-let intervalDuration = 8; // frequency (ms) of data updater cycle
+let intervalDuration = 125; // frequency (ms) of data updater cycle
 const throttleInterval = 8; // Throttle to ~120 FPS (8ms) - target data exchange frequency between data updater and renderer (main thread)
 let batchSteps = 1; // how many steps/updates to perform per intervalDuration cycle (workaround for real maximum of 4ms interval)
 
@@ -26,7 +29,7 @@ function postThrottledMessage(labyrinthData) {
 
 function updateData() {
 
-    if (mazeGenerationStep >= labyrinthDataSteps.length) {
+    if (mazeGenerationStep >= labyrinthDataNumSteps) {
         console.log('Data updater: all updates completed, skipping update')
         if (!finalThrottledUpdatePosted) {
             let status = postThrottledMessage(labyrinthData);
@@ -34,29 +37,42 @@ function updateData() {
                 finalThrottledUpdatePosted = true;
                 postMessage({'status':'done'})
             }
-
         }
         return;
     }
-    let nextStepData = labyrinthData;
-    for (let step = 0; step < batchSteps; step++) {
-        if (mazeGenerationStep >= labyrinthDataSteps.length) {
-            break
+    // Fastforward/rewind logic - a lot of potential for optimization if needed
+    // Currently just restarts step updates from 0 until requested step is reached
+    let nextStepData = null;
+    if (requestedMazeGenerationStep !== null) {
+        console.log("Data updater: fastforwarding/rewinding to ", requestedMazeGenerationStep)
+        mazeGenerationStep = 0;
+        nextStepData = labyrinthDataInitialState;
+        for (mazeGenerationStep; mazeGenerationStep < requestedMazeGenerationStep; mazeGenerationStep++) {
+            if (mazeGenerationStep >= labyrinthDataNumSteps) {
+                break
+            }
+            const stepStart = mazeGenerationStep * 3;
+            nextStepData[labyrinthDataSteps[stepStart]][labyrinthDataSteps[stepStart+1]] = labyrinthDataSteps[stepStart+2];
         }
-        const nextStepChange = labyrinthDataSteps[mazeGenerationStep];
-        for (const subStep of nextStepChange) {
-            const nextStepChangeY = subStep[0];
-            const nextStepChangeX = subStep[1];
-            const nextStepChangeValue = subStep[2];
-            nextStepData[nextStepChangeY][nextStepChangeX] = nextStepChangeValue;
+        requestedMazeGenerationStep = null;
+    } else {
+        // Normal maze data update
+        nextStepData = labyrinthData;
+        for (let step = 0; step < batchSteps; step++) {
+            if (mazeGenerationStep >= labyrinthDataNumSteps) {
+                break
+            }
+            const stepStart = mazeGenerationStep * 3;
+            nextStepData[labyrinthDataSteps[stepStart]][labyrinthDataSteps[stepStart+1]] = labyrinthDataSteps[stepStart+2];
+            mazeGenerationStep++;
         }
-        mazeGenerationStep++;
     }
+
     labyrinthData = nextStepData;
     postThrottledMessage(labyrinthData);
 };
 self.onerror = (err) => {
-    console.error("Worker script error:", err.message);
+    console.error("Data updater error:", err.message);
 };
 self.onmessage = function(event) {
     const message = event.data;
@@ -65,20 +81,39 @@ self.onmessage = function(event) {
         if (updateDataID === null) {
             console.log('Data updater: starting up...');
             labyrinthDataSteps = message.labyrinthDataSteps;
+            labyrinthDataNumSteps = message.labyrinthDataSteps.length / 3;
             labyrinthData = message.labyrinthDataInitialState;
+            labyrinthDataInitialState = message.labyrinthDataInitialState;
             updateDataID = setInterval(updateData, intervalDuration);
         }
     }
 
     if (message.action === 'Stop') {
         if (updateDataID !== null) {
-            console.log('Data updater: stopping...')
             clearInterval(updateDataID);
+            updateDataID = null;
+        }
+            console.log('Data updater: stopping...')
             mazeGenerationStep = 0;
             labyrinthDataSteps = null;
             labyrinthData = null;
-            updateDataID = null;
             console.log('Data updater: stopped!')
+    }
+
+    if (message.action === 'Pause') {
+        if (updateDataID !== null) {
+            console.log('Data updater: pausing...')
+            clearInterval(updateDataID);
+            updateDataID = null;        
+            console.log('Data updater: paused!')
+        }
+    }
+
+    if (message.action === 'Resume') {
+        if (updateDataID === null) {
+            console.log('Data updater: resuming...')
+            updateDataID = setInterval(updateData, intervalDuration);          
+            console.log('Data updater: resumed!')
         }
     }
 }

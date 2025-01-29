@@ -146,8 +146,8 @@ function initializeCanvasManager(canvasId, labyrinthDataset) {
 
     dataUpdater.onmessage = (event) => {
         if (event.data.status === 'done') {
-            dataUpdater.postMessage({'action': 'Stop'});
-            dataUpdater.terminate();
+            console.log("Main: pausing data updater...")
+            dataUpdater.postMessage({'action': 'Pause'});
             State.animateMazeGeneration = false;
         } else {
         const flatArray = event.data;
