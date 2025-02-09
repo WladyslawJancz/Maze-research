@@ -17,12 +17,33 @@ import time
 from maze_generators.depth_first_search_generator import generate_dfs_labyrinth
 from maze_generators.random_grid_generator import generate_random_grid
 
+steps_per_second_preset = [
+    1,
+    2,
+    5,
+    10,
+    20,
+    50,
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    5000,
+    10000,
+    20000,
+]
+
 
 def create_labyrinth():
     labyrinth = html.Div(
         id="labyrinth",
         children=[
             dcc.Store(id="labyrinth-data-store"),
+            dcc.Store(
+                id="maze-generate-step-by-step-slider-presets",
+                data=steps_per_second_preset,
+            ),
             html.Canvas(
                 id="labyrinth-canvas",
                 children=[],
@@ -118,11 +139,43 @@ def create_labyrinth():
                     ),
                 ]
             ),
-            dmc.Button(id="generate-maze-button", children=["Generate"]),
+            dmc.Group(
+                children=[
+                    dmc.Button(
+                        id="generate-maze-button", children=["Generate"], flex=1
+                    ),
+                    dmc.Checkbox(
+                        id="maze-generate-step-by-step-checkbox",
+                        checked=True,
+                        label="Step-by-step",
+                    ),
+                ],
+            ),
         ],
         gap=60,
         flex=1,
     )
+
+    labyrinth_animation_player = dmc.Stack(
+        dmc.Slider(
+            id="maze-generate-step-by-step-speed-slider",
+            marks=[
+                {
+                    "value": value,
+                    "label": f"{str(int(label/1000))+"K" if label >= 1000 else label}",
+                }
+                for value, label in enumerate(steps_per_second_preset)
+            ],
+            label=None,  # lambda value: str(steps_per_second_preset[value]), # Should be available in a future release
+            min=0,
+            max=len(steps_per_second_preset) - 1,
+            restrictToMarks=True,
+            value=2,
+            updatemode="drag",
+        )
+    )
+
+    labyrinth_controls.children.append(labyrinth_animation_player)
     return dmc.Group(children=[labyrinth, labyrinth_controls], h="100%")
 
 
@@ -163,12 +216,26 @@ clientside_callback(
     Input("maze-path-color-picker", "value"),
 )
 
+# Callback to dispatch event that changes maze generation animation speed
+clientside_callback(
+    ClientsideFunction(
+        namespace="namespace",
+        function_name="callbackChangeMazeGenerationAnimationSpeed",
+    ),
+    Input("maze-generate-step-by-step-speed-slider", "value"),
+    State("maze-generate-step-by-step-slider-presets", "data"),
+)
+
+# Callback to initialize canvas manager for the maze,
+# triggered when maze data is available after "Generate" button press
 clientside_callback(
     ClientsideFunction(namespace="namespace", function_name="callbackManageLabyrinth"),
     Input("labyrinth-data-store", "data"),
+    State("maze-generate-step-by-step-checkbox", "checked"),
 )
 
 
+# Callback to disable maze height slider if square mode is enabled
 @callback(
     Output("maze-height-slider", "disabled"),
     Input("maze-square-mode-checkbox", "checked"),

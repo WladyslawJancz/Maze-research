@@ -124,6 +124,13 @@ const mazeResizer = (State, canvas, offscreenCanvas) => {
     State.canvasResized = true;
 }
 
+const mazeGenerationAnimationSpeedUpdatedHandler = (event, State) => {
+    State.dataUpdater.postMessage({
+        'action': 'Change speed',
+        'speedParameters': event.value 
+    });
+};
+
 function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
 
     // Store handlers in the State object to ensure consistent references
@@ -135,7 +142,8 @@ function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
             panningStopperFn: () => panningStopper(State),
             minimapOnClickMoverFn: (event) => minimapOnClickMover(event, State, canvas),
             mazeStyleUpdateHandlerFn: (event) => mazeStyleUpdateHandler(event, State),
-            mazeResizerFn: () => mazeResizer(State, canvas, offscreenCanvas)
+            mazeResizerFn: () => mazeResizer(State, canvas, offscreenCanvas),
+            mazeGenerationAnimationSpeedUpdatedHandlerFn: (event) => mazeGenerationAnimationSpeedUpdatedHandler(event, State),
         };
     }
 
@@ -171,13 +179,20 @@ function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
         {
             type: 'mazeStyleUpdated',
             handler: State.handlers.mazeStyleUpdateHandlerFn,
-            target: window, // Optional: Bind to a different target
+            target: window,
         },
         {
             type: 'resize',
             handler: State.handlers.mazeResizerFn,
             target: window
+        },
+        // Support of maze generation animation speed change
+        {
+            type: 'mazeGenerationAnimationSpeedUpdated',
+            handler: State.handlers.mazeGenerationAnimationSpeedUpdatedHandlerFn,
+            target: window,
         }
+
     ];
 
     // Determine action based on the mode

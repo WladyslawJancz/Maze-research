@@ -8,8 +8,8 @@ let labyrinthData = null;
 let labyrinthDataInitialState = null;
 let lastUpdateTime = 0;
 let finalThrottledUpdatePosted = false;
-let intervalDuration = 125; // frequency (ms) of data updater cycle
-const throttleInterval = 8; // Throttle to ~120 FPS (8ms) - target data exchange frequency between data updater and renderer (main thread)
+let intervalDuration = 1000; // frequency (ms) of data updater cycle
+const throttleInterval = 8; // Throttle to ~120 FPS (8ms) - target data exchange frequency between data updater (this file, web worker) and renderer (main thread)
 let batchSteps = 1; // how many steps/updates to perform per intervalDuration cycle (workaround for real maximum of 4ms interval)
 
 function postThrottledMessage(labyrinthData) {
@@ -114,6 +114,24 @@ self.onmessage = function(event) {
             console.log('Data updater: resuming...')
             updateDataID = setInterval(updateData, intervalDuration);          
             console.log('Data updater: resumed!')
+        }
+    }
+
+    if (message.action === 'Change speed') {
+        if (updateDataID !== null) {
+            console.log('Data updater: changing speed...')
+            intervalDuration = message.speedParameters.intervalDuration;
+            batchSteps = message.speedParameters.batchSteps;
+
+            clearInterval(updateDataID);
+            updateDataID = null;
+
+            updateDataID = setInterval(updateData, intervalDuration); 
+            
+            console.log("Data updater: current speed is")
+            console.log(intervalDuration)
+            console.log(batchSteps)
+
         }
     }
 }

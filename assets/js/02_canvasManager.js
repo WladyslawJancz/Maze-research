@@ -2,7 +2,7 @@ console.log("Loading canvas manager");
 
 let activeCanvasManager = null; // Track the active instance for cleanup
 
-function initializeCanvasManager(canvasId, labyrinthDataset) {
+function initializeCanvasManager(canvasId, labyrinthDataset, generate_step_by_step) {
     // Cleanup any existing instance
     if (activeCanvasManager) {
         activeCanvasManager.cleanup();
@@ -52,7 +52,7 @@ function initializeCanvasManager(canvasId, labyrinthDataset) {
         mazeCellCounts: {x: null, y: null},
         mazeStyleUpdated: false,
         canvasResized: false,
-        animateMazeGeneration: true,
+        animateMazeGeneration: generate_step_by_step,
         mazeGenerationStepRendered: false,
     };
 
@@ -137,17 +137,17 @@ function initializeCanvasManager(canvasId, labyrinthDataset) {
 
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
     // Start the loop
-    const dataUpdater = new Worker('/assets/js/dataUpdater.js');
+    State.dataUpdater = new Worker('/assets/js/dataUpdater.js');
     if (State.animateMazeGeneration) {
         console.log("Initializing worker: dataUpdater for maze generation animation")
-        dataUpdater.postMessage({'action': 'Start', 'labyrinthDataSteps': labyrinthDataSteps, 'labyrinthDataInitialState': labyrinthDataInitialState});
+        State.dataUpdater.postMessage({'action': 'Start', 'labyrinthDataSteps': labyrinthDataSteps, 'labyrinthDataInitialState': labyrinthDataInitialState});
         labyrinthData = labyrinthDataInitialState;
     }
 
-    dataUpdater.onmessage = (event) => {
+    State.dataUpdater.onmessage = (event) => {
         if (event.data.status === 'done') {
             console.log("Main: pausing data updater...")
-            dataUpdater.postMessage({'action': 'Pause'});
+            State.dataUpdater.postMessage({'action': 'Pause'});
             State.animateMazeGeneration = false;
         } else {
         const flatArray = event.data;
@@ -160,7 +160,7 @@ function initializeCanvasManager(canvasId, labyrinthDataset) {
         State.mazeGenerationStepRendered = false;
         }
     }
-    dataUpdater.onerror = (err) => {
+    State.dataUpdater.onerror = (err) => {
         console.error("Worker error:", err.message);
     };
     
@@ -172,8 +172,8 @@ function initializeCanvasManager(canvasId, labyrinthDataset) {
         handleEventListeners(canvas, offscreenCanvas, State, mode = "remove");
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
-        dataUpdater.postMessage({'action': 'Stop'});
-        dataUpdater.terminate();
+        State.dataUpdater.postMessage({'action': 'Stop'});
+        State.dataUpdater.terminate();
 
         offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
