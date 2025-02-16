@@ -11,39 +11,18 @@ from dash import (
 import dash_mantine_components as dmc
 import json
 
-import random
 import time
 
 from maze_generators.depth_first_search_generator import generate_dfs_labyrinth
 from maze_generators.random_grid_generator import generate_random_grid
-
-steps_per_second_preset = [
-    1,
-    2,
-    5,
-    10,
-    20,
-    50,
-    100,
-    200,
-    500,
-    1000,
-    2000,
-    5000,
-    10000,
-    20000,
-]
+from maze_components.player import Player
 
 
-def create_labyrinth():
+def create_labyrinth(app):
     labyrinth = html.Div(
         id="labyrinth",
         children=[
             dcc.Store(id="labyrinth-data-store"),
-            dcc.Store(
-                id="maze-generate-step-by-step-slider-presets",
-                data=steps_per_second_preset,
-            ),
             html.Canvas(
                 id="labyrinth-canvas",
                 children=[],
@@ -156,26 +135,7 @@ def create_labyrinth():
         flex=1,
     )
 
-    labyrinth_animation_player = dmc.Stack(
-        dmc.Slider(
-            id="maze-generate-step-by-step-speed-slider",
-            marks=[
-                {
-                    "value": value,
-                    "label": f"{str(int(label/1000))+"K" if label >= 1000 else label}",
-                }
-                for value, label in enumerate(steps_per_second_preset)
-            ],
-            label=None,  # lambda value: str(steps_per_second_preset[value]), # Should be available in a future release
-            min=0,
-            max=len(steps_per_second_preset) - 1,
-            restrictToMarks=True,
-            value=2,
-            updatemode="drag",
-        )
-    )
-
-    labyrinth_controls.children.append(labyrinth_animation_player)
+    labyrinth_controls.children.append(Player(app, "maze").render())
     return dmc.Group(children=[labyrinth, labyrinth_controls], h="100%")
 
 
@@ -214,16 +174,6 @@ clientside_callback(
     Input("labyrinth-data-store", "modified_timestamp"),
     Input("maze-wall-color-picker", "value"),
     Input("maze-path-color-picker", "value"),
-)
-
-# Callback to dispatch event that changes maze generation animation speed
-clientside_callback(
-    ClientsideFunction(
-        namespace="namespace",
-        function_name="callbackChangeMazeGenerationAnimationSpeed",
-    ),
-    Input("maze-generate-step-by-step-speed-slider", "value"),
-    State("maze-generate-step-by-step-slider-presets", "data"),
 )
 
 # Callback to initialize canvas manager for the maze,
