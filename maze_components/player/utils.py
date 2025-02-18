@@ -1,4 +1,4 @@
-def prefix_id(prefix: str, id: str) -> str:
+def create_id(prefix: str, id: str) -> str:
     """_summary_
 
     Args:

@@ -2,6 +2,7 @@ from typing import List
 from .layout import create_layout
 from .default_config import PLAYER_STEPS_PER_SECOND_OPTIONS
 from .callbacks import register_callbacks
+from .utils import create_id
 from dash import Dash
 
 
@@ -12,7 +13,7 @@ class Player:
         id_prefix: str,
         speed_presets: List[int] = PLAYER_STEPS_PER_SECOND_OPTIONS,
     ):
-        """_summary_
+        """Player component
 
         Args:
             app (Dash): a Dash app object, used for callback context
@@ -21,8 +22,24 @@ class Player:
         """
         self.app = app
         self.id_prefix = id_prefix
-        self.layout = create_layout(id_prefix, speed_presets)
-        register_callbacks(app, id_prefix)
+        self.speed_presets = speed_presets
+
+        self.main_id = create_id(id_prefix, "main")
+        self.main_state_store_id = create_id(id_prefix, "main-state-store")
+        self.speed_presets_store_id = create_id(id_prefix, "speed-presets-store")
+        self.step_slider_id = create_id(id_prefix, "step-slider")
+        self.speed_slider_id = create_id(id_prefix, "speed-slider")
+
+        self.layout = create_layout(self)
 
     def render(self):
+        """Render Player in the app
+
+        Returns:
+            dmc.Stack: Player layout
+        """
         return self.layout
+
+    def setup_callbacks(self):
+        """Registers Player callbacks in the app"""
+        register_callbacks(self.app, self)

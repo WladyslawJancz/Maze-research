@@ -134,8 +134,10 @@ def create_labyrinth(app):
         gap=60,
         flex=1,
     )
+    labyrinth_player = Player(app, "maze-player")
+    labyrinth_controls.children.append(labyrinth_player.render())
+    labyrinth_player.setup_callbacks()
 
-    labyrinth_controls.children.append(Player(app, "maze").render())
     return dmc.Group(children=[labyrinth, labyrinth_controls], h="100%")
 
 
@@ -143,6 +145,9 @@ def create_labyrinth(app):
 @callback(
     Output("labyrinth-data-store", "data"),  # Send generated labyrinth data to Store
     Output("content-placeholder", "children"),
+    Output(
+        "maze-player-step-slider", "max"
+    ),  # TODO: move to dedicated callback where player store is an input, populated by JS dataUpdater
     Input("generate-maze-button", "n_clicks"),  # Triggered on button click
     State("maze-width-slider", "value"),
     State("maze-height-slider", "value"),
@@ -154,6 +159,8 @@ def generate_dfs_labyrinth_on_refresh(
     if square_mode_enabled:
         maze_height = maze_width
     labyrinth_data = generate_dfs_labyrinth(maze_width, maze_height)
+    num_steps = len(labyrinth_data[1])
+
     # labyrinth_data = generate_random_grid(maze_width, maze_height)
 
     json_time = time.time()
@@ -161,8 +168,10 @@ def generate_dfs_labyrinth_on_refresh(
     json_time = time.time() - json_time
     print(f"\n json time: {json_time}")
 
-    return labyrinth_data, "Maze dimensions: {} x {}".format(
-        maze_width, maze_height
+    return (
+        labyrinth_data,
+        "Maze dimensions: {} x {}".format(maze_width, maze_height),
+        num_steps,
     )  # Send as JSON
 
 
