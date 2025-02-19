@@ -2,7 +2,7 @@ from typing import List
 from .layout import create_layout
 from .default_config import PLAYER_STEPS_PER_SECOND_OPTIONS
 from .callbacks import register_callbacks
-from .utils import create_id
+from maze_components.utils import create_id
 from dash import Dash
 
 
@@ -17,7 +17,7 @@ class Player:
 
         Args:
             app (Dash): a Dash app object, used for callback context
-            id_prefix (str): a prefix added to IDs of all UI elements of the player for easier targeting in callbacks
+            id_prefix (str): a prefix added to IDs of all UI elements of the Player for easier targeting in callbacks
             speed_presets (List[int], optional): a list of integers added as options for playthrough speed. Defaults to PLAYER_STEPS_PER_SECOND_OPTIONS.
         """
         self.app = app

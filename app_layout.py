@@ -1,5 +1,6 @@
 from dash import html
 from create_labyrinth import create_labyrinth
+from maze_generators.depth_first_search_generator import generate_dfs_labyrinth
 
 
 def generate_layout(app):
@@ -33,10 +34,7 @@ def generate_layout(app):
                 ),
                 html.Div(
                     id="labyrinth-container",
-                    children=[
-                        # 'ba',
-                        create_labyrinth(app)
-                    ],
+                    children=[create_labyrinth(app, "dfs", generate_dfs_labyrinth)],
                     style={
                         "flex": "1 0 50%",
                         "overflow": "hidden",

@@ -1,11 +1,11 @@
 // Callback initializing canvas manager
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
     namespace: Object.assign({}, (window.dash_clientside || {}).namespace, {
-        callbackManageLabyrinth: function(data, generate_step_by_step) {
+        callbackManageLabyrinth: function(data, canvas_id, generate_step_by_step) {
             console.time('json_parsing');
             const labyrinthData = JSON.parse(data);  // Decode the JSON data
             console.timeEnd('json_parsing');
-            window.initializeCanvasManager("labyrinth-canvas", labyrinthData, generate_step_by_step);  // Call drawing function
+            window.initializeCanvasManager(canvas_id, labyrinthData, generate_step_by_step);  // Call drawing function
             return null;
         }
     })

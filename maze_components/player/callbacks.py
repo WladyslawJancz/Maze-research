@@ -1,4 +1,4 @@
-from dash import clientside_callback, ClientsideFunction, Input, State, Dash
+from dash import ClientsideFunction, Input, State, Dash
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
