@@ -94,12 +94,6 @@ def create_layout(controls: "Controls") -> dmc.Stack:
                     dmc.Button(
                         id=controls.generate_button_id, children=["Generate"], flex=1
                     ),
-                    dmc.Checkbox(
-                        id=controls.show_player_on_start_checkbox_id,
-                        checked=True,
-                        label="Step-by-step",
-                        persistence=True,
-                    ),
                 ],
             ),
         ],

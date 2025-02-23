@@ -131,6 +131,33 @@ const mazeGenerationAnimationSpeedUpdatedHandler = (event, State) => {
     });
 };
 
+const playerPlayPauseHandler = (event, State) => {
+    console.log("Play pause handler", event.value)
+    State.dataUpdater.postMessage({
+        'action': event.value 
+    });
+};
+
+const playerVisibilityHandler = (event, State) => {
+    console.log("Player visibility handler", event.value)
+    if (event.value === "visible") {
+        State.animateMazeGeneration = true
+        State.dataUpdater.postMessage({
+            'action': 'PlayPassive'
+        })
+    }
+    if (event.value === "hidden") {
+        State.animateMazeGeneration = false
+        State.dataUpdater.postMessage({
+            'action': 'Pause'
+        })
+        State.dataUpdater.postMessage({
+            'action': 'PausePassive'
+        })
+    }
+
+}
+
 function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
 
     // Store handlers in the State object to ensure consistent references
@@ -144,6 +171,8 @@ function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
             mazeStyleUpdateHandlerFn: (event) => mazeStyleUpdateHandler(event, State),
             mazeResizerFn: () => mazeResizer(State, canvas, offscreenCanvas),
             mazeGenerationAnimationSpeedUpdatedHandlerFn: (event) => mazeGenerationAnimationSpeedUpdatedHandler(event, State),
+            playerPlayPauseHandlerFn: (event) => playerPlayPauseHandler(event, State),
+            playerVisibilityHandlerFn: (event) => playerVisibilityHandler(event, State),
         };
     }
 
@@ -191,8 +220,17 @@ function handleEventListeners(canvas, offscreenCanvas, State, mode = 'attach') {
             type: 'mazeGenerationAnimationSpeedUpdated',
             handler: State.handlers.mazeGenerationAnimationSpeedUpdatedHandlerFn,
             target: window,
-        }
-
+        },
+        {
+            type: 'playerPlayPause',
+            handler: State.handlers.playerPlayPauseHandlerFn,
+            target: window,
+        },
+        {
+            type: 'playerVisibilityChange',
+            handler: State.handlers.playerVisibilityHandlerFn,
+            target: window,
+        },
     ];
 
     // Determine action based on the mode

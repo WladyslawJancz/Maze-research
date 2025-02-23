@@ -3,7 +3,7 @@ from .layout import create_layout
 from .default_config import PLAYER_STEPS_PER_SECOND_OPTIONS
 from .callbacks import register_callbacks
 from maze_components.utils import create_id
-from dash import Dash
+from dash import Dash, set_props
 
 
 class Player:
@@ -25,8 +25,15 @@ class Player:
         self.speed_presets = speed_presets
 
         self.main_id = create_id(id_prefix, "main")
+        self.show_hide_button_id = create_id(id_prefix, "show-hide-button")
+        self.player_body_id = create_id(id_prefix, "player-body")
         self.main_state_store_id = create_id(id_prefix, "main-state-store")
         self.speed_presets_store_id = create_id(id_prefix, "speed-presets-store")
+        self.button_rewind_1_id = create_id(id_prefix, "button_rewind_1")
+        self.button_rewind_2_id = create_id(id_prefix, "button_rewind_2")
+        self.button_play_id = create_id(id_prefix, "button_play")
+        self.button_forward_1_id = create_id(id_prefix, "button_forward_1")
+        self.button_forward_2_id = create_id(id_prefix, "button_forward_2")
         self.step_slider_id = create_id(id_prefix, "step-slider")
         self.speed_slider_id = create_id(id_prefix, "speed-slider")
 
@@ -43,3 +50,10 @@ class Player:
     def setup_callbacks(self):
         """Registers Player callbacks in the app"""
         register_callbacks(self.app, self)
+
+    def reset(self):
+        """Resets player - pauses data updates, returns play button and steps slider to default values (paused, step 1)"""
+        set_props(self.show_hide_button_id, {"n_clicks": 0})
+        # set_props(self.player_body_id, {"display": "none"})
+        set_props(self.button_play_id, {"n_clicks": 0})
+        set_props(self.step_slider_id, {"value": 1})

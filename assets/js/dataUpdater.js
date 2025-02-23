@@ -6,15 +6,17 @@ let labyrinthDataSteps = null;
 let labyrinthDataNumSteps = null;
 let labyrinthData = null;
 let labyrinthDataInitialState = null;
+let labyrinthDataFinalState = null;
 let lastUpdateTime = 0;
 let finalThrottledUpdatePosted = false;
 let intervalDuration = 1000; // frequency (ms) of data updater cycle
 const throttleInterval = 8; // Throttle to ~120 FPS (8ms) - target data exchange frequency between data updater (this file, web worker) and renderer (main thread)
 let batchSteps = 1; // how many steps/updates to perform per intervalDuration cycle (workaround for real maximum of 4ms interval)
 
-function postThrottledMessage(labyrinthData) {
+function postThrottledMessage(labyrinthData, immediate = false) {
+
     const currentTime = performance.now();
-    if (currentTime - lastUpdateTime > throttleInterval) {
+    if (currentTime - lastUpdateTime > throttleInterval || immediate === true) {
         const flatArray = new Uint8Array(labyrinthData.length * labyrinthData[0].length);
         for (let i = 0; i < labyrinthData.length; i++) {
             for (let j = 0; j < labyrinthData[0].length; j++) {
@@ -84,7 +86,7 @@ self.onmessage = function(event) {
             labyrinthDataNumSteps = message.labyrinthDataSteps.length / 3;
             labyrinthData = message.labyrinthDataInitialState;
             labyrinthDataInitialState = message.labyrinthDataInitialState;
-            updateDataID = setInterval(updateData, intervalDuration);
+            labyrinthDataFinalState = message.labyrinthDataFinalState;
         }
     }
 
@@ -109,29 +111,37 @@ self.onmessage = function(event) {
         }
     }
 
-    if (message.action === 'Resume') {
+    if (message.action === 'Play') {
         if (updateDataID === null) {
-            console.log('Data updater: resuming...')
+            console.log('Data updater: starting to play...')
             updateDataID = setInterval(updateData, intervalDuration);          
-            console.log('Data updater: resumed!')
+            console.log('Data updater: playing!')
         }
     }
 
-    if (message.action === 'Change speed') {
-        if (updateDataID !== null) {
-            console.log('Data updater: changing speed...')
-            intervalDuration = message.speedParameters.intervalDuration;
-            batchSteps = message.speedParameters.batchSteps;
+    if (message.action === 'PlayPassive') {
+        console.log('Data updater: playing passively')
+        postThrottledMessage(labyrinthData, immediate = true)
+    }
 
+    if (message.action === 'PausePassive') {
+        console.log('Data updater: pausing passive playing')
+        postThrottledMessage(labyrinthDataFinalState, immediate = true)
+    }
+
+    if (message.action === 'Change speed') {
+        console.log('Data updater: changing speed...')
+        intervalDuration = message.speedParameters.intervalDuration;
+        batchSteps = message.speedParameters.batchSteps;
+
+        if (updateDataID !== null) {
             clearInterval(updateDataID);
             updateDataID = null;
-
             updateDataID = setInterval(updateData, intervalDuration); 
-            
-            console.log("Data updater: current speed is")
-            console.log(intervalDuration)
-            console.log(batchSteps)
-
         }
+        
+        console.log("Data updater: current speed is")
+        console.log(intervalDuration)
+        console.log(batchSteps)
     }
 }

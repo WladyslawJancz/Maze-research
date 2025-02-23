@@ -41,6 +41,8 @@ def register_callbacks(app: Dash, maze_display: "MazeDisplay"):
         json_time = time.time() - json_time
         print(f"\n json time: {json_time}")
 
+        maze_display.player.reset()
+
         return (
             labyrinth_data,
             # "Maze dimensions: {} x {}".format(maze_width, maze_height),
@@ -55,7 +57,6 @@ def register_callbacks(app: Dash, maze_display: "MazeDisplay"):
         ),
         Input(maze_display.maze_data_store_id, "data"),
         State(maze_display.canvas_id, "id"),
-        State(maze_display.controls.show_player_on_start_checkbox_id, "checked"),
     )
 
     # Callback to dispatch event that triggers maze redraw with new style on style update or new maze creation

@@ -26,9 +26,6 @@ class Controls:
         self.width_slider_id = create_id(id_prefix, "width-slider")
         self.height_slider_id = create_id(id_prefix, "height-slider")
         self.generate_button_id = create_id(id_prefix, "generate_button")
-        self.show_player_on_start_checkbox_id = create_id(
-            id_prefix, "show-player-on-start-checkbox"
-        )
 
         self.layout = create_layout(self)
 

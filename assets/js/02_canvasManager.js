@@ -1,12 +1,13 @@
 console.log("Loading canvas manager");
 
-let activeCanvasManager = null; // Track the active instance for cleanup
+let activeCanvasManagers = {}; // Track the active instance for cleanup
 
-function initializeCanvasManager(canvasId, labyrinthDataset, generate_step_by_step) {
+function initializeCanvasManager(canvasId, labyrinthDataset) {
     // Cleanup any existing instance
-    if (activeCanvasManager) {
-        activeCanvasManager.cleanup();
-        activeCanvasManager = null;
+    if (activeCanvasManagers[canvasId]) {
+        console.log(`Cleaning up existing manager for canvasId: ${canvasId}`);
+        activeCanvasManagers[canvasId].cleanup();
+        delete activeCanvasManagers[canvasId]; // Remove reference
     }
     let labyrinthDataSteps = labyrinthDataset[1];
     let labyrinthDataFinalState = labyrinthDataset[0];
@@ -52,7 +53,7 @@ function initializeCanvasManager(canvasId, labyrinthDataset, generate_step_by_st
         mazeCellCounts: {x: null, y: null},
         mazeStyleUpdated: false,
         canvasResized: false,
-        animateMazeGeneration: generate_step_by_step,
+        animateMazeGeneration: false,
         mazeGenerationStepRendered: false,
     };
 
@@ -138,11 +139,13 @@ function initializeCanvasManager(canvasId, labyrinthDataset, generate_step_by_st
     // Main script - draw offscreen maze, draw the same image on main canvas, listen for pan or zoom events, animate
     // Start the loop
     State.dataUpdater = new Worker('/assets/js/dataUpdater.js');
-    if (State.animateMazeGeneration) {
-        console.log("Initializing worker: dataUpdater for maze generation animation")
-        State.dataUpdater.postMessage({'action': 'Start', 'labyrinthDataSteps': labyrinthDataSteps, 'labyrinthDataInitialState': labyrinthDataInitialState});
-        labyrinthData = labyrinthDataInitialState;
-    }
+    console.log("Initializing worker: dataUpdater for maze generation animation")
+    State.dataUpdater.postMessage({
+        'action': 'Start',
+        'labyrinthDataSteps': labyrinthDataSteps,
+        'labyrinthDataInitialState': labyrinthDataInitialState,
+        'labyrinthDataFinalState': labyrinthDataFinalState
+    });
 
     State.dataUpdater.onmessage = (event) => {
         if (event.data.status === 'done') {
@@ -197,7 +200,7 @@ function initializeCanvasManager(canvasId, labyrinthDataset, generate_step_by_st
     };
     
     // Track active manager
-    activeCanvasManager = { cleanup };
+    activeCanvasManagers[canvasId] = { cleanup };
     handleEventListeners(canvas, offscreenCanvas, State, mode = "attach");
 
 };
